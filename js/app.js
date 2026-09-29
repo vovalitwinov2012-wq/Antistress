@@ -1396,7 +1396,9 @@ const Ball = {
     return r;
   },
   knotOf(b) {
-    const s = (b.r / 62) * this.sc * 1.35, off = 46 * s;
+    // Узел нарисован в спрайте на локальных (0, +17s): треугольник y 72..86
+    // при канвасе 220x260 и отрисовке (-dw/2, -dh/2-20s). Якорь чуть внутри узла.
+    const s = (b.r / 62) * this.sc * 1.35, off = 15 * s;
     return { x: b.x - Math.sin(b.rot || 0) * off, y: b.y + Math.cos(b.rot || 0) * off, s };
   },
   spawnFloat(x, y, big) {
@@ -1439,7 +1441,7 @@ const Ball = {
     p.tgt = 'maybe'; p.t0 = T; p.sx = p.x; p.sy = p.y;
   },
   startInflate(p) {
-    if (this.list.length >= 24) return;
+    if (this.list.length >= 24) { p.tgt = 'done'; return; }
     const R = rnd(64, 84) * this.sc;
     const b = { x: p.x, y: p.y, vx: 0, vy: 0, R, r: 12, grow: true, hold: 0, ci: (Math.random() * 6) | 0, ph: rnd(0, TAU), rot: 0, id: p.id };
     const k = this.knotOf(b);
@@ -1468,6 +1470,9 @@ const Ball = {
   update(dt) {
     this.spawnT -= dt;
     if (this.spawnT <= 0 && this.list.length < 16) { this.spawnT = rnd(.4, 1); this.spawnFloat(rnd(.06, .94) * W, H + 70); }
+    for (const q of pointers.values()) {
+      if (q.tgt === 'maybe' && T - q.t0 > .25) this.startInflate(q);
+    }
     const L = this.list;
     for (let i = L.length - 1; i >= 0; i--) {
       const b = L[i];
