@@ -81,7 +81,11 @@
     </span>
   </nav>
 
-  <nav class="skins glass hidden" id="skinStrip" aria-label="Скины"></nav>
+  <div class="spinbar hidden" id="spinBar">
+    <button class="chip glass" id="skinBtn" aria-haspopup="listbox" aria-expanded="false">Спиннер ▾</button>
+    <button class="chip glass spininfo" id="spinInfo" aria-label="Как крутить спиннер"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6"/><circle cx="12" cy="7.6" r=".4"/></svg></button>
+  </div>
+  <div class="skindrop glass hidden" id="skinDrop" role="listbox" aria-label="Скины"></div>
 
   <nav class="dock glass" id="dock" role="tablist" aria-label="Игрушки">
     <button class="tab" role="tab" data-mode="pop" aria-selected="true">
