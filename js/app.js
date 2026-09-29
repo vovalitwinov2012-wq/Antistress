@@ -32,10 +32,10 @@ function vibrate(ms) {
 }
 
 /* ---------- persistent settings ---------- */
-const store = { theme: 'sunset', lang: 'ru', muted: false };
+const store = { theme: 'sunset', lang: 'ru', muted: false, soapCi: 0, sandSi: 0 };
 try {
   const raw = localStorage.getItem('antistress-v2');
-  if (raw) { const s = JSON.parse(raw); if (s.theme) store.theme = s.theme; if (s.lang) store.lang = s.lang; if (typeof s.muted === 'boolean') store.muted = s.muted; }
+  if (raw) { const s = JSON.parse(raw); if (s.theme) store.theme = s.theme; if (s.lang) store.lang = s.lang; if (typeof s.muted === 'boolean') store.muted = s.muted; if (s.soapCi >= 0) store.soapCi = s.soapCi | 0; if (s.sandSi >= 0) store.sandSi = s.sandSi | 0; }
   else { const nav = (navigator.language || 'ru').toLowerCase(); store.lang = nav.indexOf('en') === 0 ? 'en' : 'ru'; }
 } catch (e) { /* ignore */ }
 function saveStore() { try { localStorage.setItem('antistress-v2', JSON.stringify(store)); } catch (e) { /* ignore */ } }
@@ -52,9 +52,9 @@ const STR = {
       wrap: 'Води пальцем по плёнке — пузырьки лопаются',
       bubbles: 'Лопай пузыри. Коснись пустого места — выдуешь новые',
       slime: 'Мни и тяни слайм — он тянется и складывается',
-      soap: 'Режь брусок под любым углом — тонкие срезы вьются',
+      soap: 'Режь брусок под любым углом. Цвет — кружками выше',
       ball: 'Быстрый тап — залп шаров, держи — надуешь большой',
-      sand: 'Греби песок пальцем — он раздвигается. Двойной тап — холмик'
+      sand: 'Веди — песок расходится волнами. Держи палец — подсыпается горка'
     },
     reset: { pop: 'Перевернуть всё обратно', wrap: 'Достать новую плёнку', bubbles: 'Выдуть ещё пузырей', slime: 'Новый слайм', soap: 'Новый брусок мыла', ball: 'Выпустить ещё шаров', sand: 'Разровнять песок' },
     donePop: 'Всё нажато — переворачиваю обратно',
@@ -69,9 +69,9 @@ const STR = {
       wrap: 'Slide over the film — pop the wrap',
       bubbles: 'Pop bubbles. Tap empty space to blow new ones',
       slime: 'Squish and stretch the slime — it folds and flows',
-      soap: 'Cut the bar at any angle — thin slices curl',
+      soap: 'Cut at any angle. Change color with the dots above',
       ball: 'Quick tap bursts balloons, hold inflates a big one',
-      sand: 'Rake the sand — it piles up at the sides'
+      sand: 'Swipe — sand ripples away. Hold to pour a mound',
     },
     reset: { pop: 'Flip everything back', wrap: 'Get new film', bubbles: 'Blow more bubbles', slime: 'Fresh slime', soap: 'New soap bar', ball: 'Release more balloons', sand: 'Level the sand' },
     donePop: 'All pressed — flipping back',
@@ -1124,14 +1124,25 @@ const Slime = {
 
 /* ---------- 5. SOAP — честный рез: полигоны, крошка, завитки ---------- */
 const PASTEL = ['#ffd9e8', '#ffe9c7', '#fff7c2', '#d9f7d4', '#d4f0ff', '#e6dcff', '#ffe3c2'];
-const SOAP_SKIN = '#f6e6cb', SOAP_FRESH = '#fffaf0', SOAP_EDGE = 'rgba(150,100,55,.4)';
+const SOAP_SKINS = [
+  { name: ['Кремовый', 'Creamy'], base: '#f6e6cb' },
+  { name: ['Роза', 'Rose'], base: '#f6cfd8' },
+  { name: ['Мята', 'Mint'], base: '#cdeeda' },
+  { name: ['Лаванда', 'Lavender'], base: '#ddd3f5' },
+  { name: ['Небо', 'Sky'], base: '#cfe6f7' },
+  { name: ['Мёд', 'Honey'], base: '#f7e3b0' }
+];
+function soapShade(hex, f) {
+  const b = hex2rgb(hex);
+  return f >= 0 ? rgba(mixc(b, WHITE, f)) : rgba(mixc(b, [96, 55, 28], -f));
+}
 const SoapCut = {
   bar: null, area0: 1, pieces: [], cols: null, nCols: 0, cellW: 12, tableY: 0,
-  cut: 0, curls: 0, gone: false, guide: null, decals: [],
+  cut: 0, curls: 0, gone: false, guide: null, decals: [], ci: 0,
   build(keep) {
     const oldC = keep ? this.cut : 0, oldCu = keep ? this.curls : 0;
-    const w = Math.min(W * .8, 500), h = clamp(H * .12, 90, 130);
-    const x = W / 2 - w / 2, y = 150, r = 22;
+    const w = Math.min(W * .9, 560), h = clamp(H * .15, 120, 170);
+    const x = W / 2 - w / 2, y = 168, r = 24;
     const pts = [
       { x: x + r, y }, { x: x + w - r, y },
       { x: x + w, y: y + r }, { x: x + w, y: y + h - r },
@@ -1216,10 +1227,11 @@ const SoapCut = {
     const c1 = clamp(Math.ceil((x + w / 2) / this.cellW), 0, this.nCols - 1);
     for (let i = c0; i <= c1; i++) this.cols[i] += h / Math.max(1, (c1 - c0 + 1));
   },
-  crumbs(x, y, n, spread) {
+  crumbs(x, y, n, spread, ci) {
+    const skin = SOAP_SKINS[clamp(ci == null ? this.ci : ci, 0, SOAP_SKINS.length - 1)];
     for (let i = 0; i < n && fx.length < 400; i++) {
       const a = rnd(-Math.PI, 0), v = rnd(40, 150) * (spread || 1);
-      fx.push({ t: 'grain', x: x + rnd(-8, 8), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 600, drag: 1.5, size: rnd(1, 2.8), css: Math.random() < .5 ? 'rgb(255,250,238)' : 'rgb(240,220,190)', life: 0, max: rnd(.3, .7) });
+      fx.push({ t: 'grain', x: x + rnd(-8, 8), y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, g: 600, drag: 1.5, size: rnd(1, 2.8), css: Math.random() < .5 ? 'rgb(255,252,244)' : skin.base, life: 0, max: rnd(.3, .7) });
     }
   },
   tryCut(x1, y1, x2, y2) {
@@ -1246,11 +1258,11 @@ const SoapCut = {
     this.cut++;
     Snd.soapCut(pan, clamp(len / 260, .35, 1.3)); vibrate(12);
     const mx = (s.cuts[0].x + s.cuts[1].x) / 2, my = (s.cuts[0].y + s.cuts[1].y) / 2;
-    this.crumbs(mx, my, clamp(Math.round(len / 9), 3, 14), 1);
+    this.crumbs(mx, my, clamp(Math.round(len / 9), 3, 14), 1, this.ci);
     fx.push({ t: 'ring', x: mx, y: my, r0: 6, r1: 30, life: 0, max: .22, css: 'rgba(255,255,255,.9)', a: .45, lw: 2 });
     this.bar.pts = big; this.bar.c = this.centroidOf(big);
     this.bar.fresh.push(s.cuts); this.bar.speck = this.sampleSpeck(big, 30);
-    if (aS < 60) { this.crumbs(mx, my, 8, 1.4); }
+    if (aS < 60) { this.crumbs(mx, my, 8, 1.4, this.ci); }
     else this.spawnPiece(small, s.cuts, dx, dy);
     const left = this.areaOf(big) / this.area0;
     if (left < .15) {
@@ -1261,18 +1273,19 @@ const SoapCut = {
     void len;
   },
   applyPieceCut(i, s, pan, len) {
+    const oldCi = this.pieces[i] ? (this.pieces[i].ci || 0) : this.ci;
     this.pieces.splice(i, 1);
     const aA = this.areaOf(s.A), aB = this.areaOf(s.B);
     this.cut++;
     Snd.soapCut(pan, clamp(len / 260, .35, 1.3)); vibrate(12);
     const mx = (s.cuts[0].x + s.cuts[1].x) / 2, my = (s.cuts[0].y + s.cuts[1].y) / 2;
-    this.crumbs(mx, my, clamp(Math.round(len / 9), 3, 12), 1);
+    this.crumbs(mx, my, clamp(Math.round(len / 9), 3, 12), 1, oldCi);
     const mk = pts => {
       const c = this.centroidOf(pts);
-      return { local: pts.map(p => ({ x: p.x - c.x, y: p.y - c.y })), x: c.x, y: c.y, vx: rnd(-40, 40), vy: rnd(-60, -10), angle: 0, va: rnd(-3, 3), landed: false, fresh: [[{ x: s.cuts[0].x - c.x, y: s.cuts[0].y - c.y }, { x: s.cuts[1].x - c.x, y: s.cuts[1].y - c.y }]], curl: this.isThin(pts), born: T };
+      return { local: pts.map(p => ({ x: p.x - c.x, y: p.y - c.y })), x: c.x, y: c.y, vx: rnd(-40, 40), vy: rnd(-60, -10), angle: 0, va: rnd(-3, 3), landed: false, ci: oldCi, fresh: [[{ x: s.cuts[0].x - c.x, y: s.cuts[0].y - c.y }, { x: s.cuts[1].x - c.x, y: s.cuts[1].y - c.y }]], curl: this.isThin(pts), born: T };
     };
-    if (aA >= 60) this.pieces.push(mk(s.A)); else this.crumbs(mx, my, 6, 1.2);
-    if (aB >= 60) this.pieces.push(mk(s.B)); else this.crumbs(mx, my, 6, 1.2);
+    if (aA >= 60) this.pieces.push(mk(s.A)); else this.crumbs(mx, my, 6, 1.2, oldCi);
+    if (aB >= 60) this.pieces.push(mk(s.B)); else this.crumbs(mx, my, 6, 1.2, oldCi);
     if (this.isThin(s.A) || this.isThin(s.B)) { this.curls++; Snd.curlSnap(pan); }
     while (this.pieces.length > 48) this.pieces.shift();
     void len;
@@ -1285,7 +1298,7 @@ const SoapCut = {
     const pc = {
       local: smallPts.map(p => ({ x: p.x - c.x, y: p.y - c.y })), x: c.x, y: c.y,
       vx: dx / dl * sp * .4 + rnd(-20, 20), vy: dy / dl * sp * .3 - 40,
-      angle: 0, va: rnd(-4, 4), landed: false,
+      angle: 0, va: rnd(-4, 4), landed: false, ci: this.ci,
       fresh: [[{ x: cuts[0].x - c.x, y: cuts[0].y - c.y }, { x: cuts[1].x - c.x, y: cuts[1].y - c.y }]],
       curl: this.isThin(smallPts), born: T
     };
@@ -1301,6 +1314,11 @@ const SoapCut = {
   },
   up() { this.guide = null; },
   reset() { this.build(false); Snd.rustle(); },
+  setSkin(i) {
+    this.ci = clamp(i | 0, 0, SOAP_SKINS.length - 1);
+    store.soapCi = this.ci; saveStore();
+    this.build(false); Snd.rustle();
+  },
   update(dt) {
     for (const pc of this.pieces) {
       if (pc.landed) continue;
@@ -1318,28 +1336,41 @@ const SoapCut = {
     for (let i = this.decals.length - 1; i >= 0; i--) { this.decals[i].life += dt; if (this.decals[i].life > 6) this.decals.splice(i, 1); }
   },
   polyPath(pts) { ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); },
-  paintPiece(pts, fresh, speck, curl, angle, cx, cy) {
+  paintPiece(pts, fresh, speck, curl, angle, cx, cy, ci) {
+    const skin = SOAP_SKINS[clamp(ci || 0, 0, SOAP_SKINS.length - 1)];
+    const edge = soapShade(skin.base, -.45), deep = soapShade(skin.base, -.28), light = soapShade(skin.base, .4);
     if (curl) {
       const b = this.bboxOf(pts);
-      const r = Math.max(b.w, b.h) * .32;
-      ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
-      ctx.strokeStyle = SOAP_EDGE; ctx.lineWidth = Math.min(b.w, b.h) + 2; ctx.lineCap = 'round';
-      ctx.beginPath(); ctx.arc(0, 0, r, .3, Math.PI * 1.7); ctx.stroke();
-      ctx.strokeStyle = SOAP_FRESH; ctx.lineWidth = Math.max(2, Math.min(b.w, b.h) - 2);
-      ctx.beginPath(); ctx.arc(0, 0, r, .3, Math.PI * 1.7); ctx.stroke();
+      const maxR = Math.max(b.w, b.h) * .3, turns = 2.1, lw = Math.max(3, Math.min(b.w, b.h) * .85);
+      ctx.save(); ctx.translate(cx, cy);
+      ctx.fillStyle = 'rgba(20,0,60,.22)';
+      ctx.beginPath(); ctx.ellipse(3, 6, maxR * 1.15, maxR * .42, 0, 0, TAU); ctx.fill();
+      ctx.rotate(angle); ctx.lineCap = 'round';
+      const passes = [{ c: edge, w: lw + 2 }, { c: skin.base, w: lw }, { c: light, w: Math.max(1.5, lw * .4) }];
+      for (const ps of passes) {
+        ctx.strokeStyle = ps.c; ctx.lineWidth = ps.w;
+        ctx.beginPath();
+        for (let a = 0; a <= turns * TAU; a += .12) {
+          const r = maxR * (1 - a / (turns * TAU) * .72);
+          const px = Math.cos(a + .6) * r, py = Math.sin(a + .6) * r;
+          if (a === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
       ctx.restore();
       return;
     }
     ctx.save();
     ctx.fillStyle = 'rgba(20,0,60,.22)';
     ctx.beginPath(); this.polyPath(pts.map(p => ({ x: p.x + 3, y: p.y + 5 }))); ctx.fill();
-    const g = ctx.createLinearGradient(0, this.bboxOf(pts).y0, 0, this.bboxOf(pts).y1);
-    g.addColorStop(0, '#fbf0da'); g.addColorStop(.5, SOAP_SKIN); g.addColorStop(1, '#e3c39a');
+    const bb = this.bboxOf(pts);
+    const g = ctx.createLinearGradient(0, bb.y0, 0, bb.y1);
+    g.addColorStop(0, light); g.addColorStop(.5, skin.base); g.addColorStop(1, deep);
     ctx.beginPath(); this.polyPath(pts);
     ctx.fillStyle = g; ctx.fill();
-    if (speck) { ctx.fillStyle = 'rgba(150,95,50,.5)'; for (const s of speck) { ctx.globalAlpha = s.a; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
+    if (speck) { ctx.fillStyle = soapShade(skin.base, -.5); for (const s of speck) { ctx.globalAlpha = s.a; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, TAU); ctx.fill(); } ctx.globalAlpha = 1; }
     ctx.beginPath(); this.polyPath(pts);
-    ctx.strokeStyle = SOAP_EDGE; ctx.lineWidth = 2; ctx.stroke();
+    ctx.strokeStyle = edge; ctx.lineWidth = 2; ctx.stroke();
     if (fresh) for (const f of fresh) {
       ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(f[0].x, f[0].y); ctx.lineTo(f[1].x, f[1].y); ctx.stroke();
@@ -1365,7 +1396,7 @@ const SoapCut = {
   draw() {
     this.drawTable();
     if (this.bar && !this.gone) {
-      this.paintPiece(this.bar.pts, this.bar.fresh.map(f => f), this.bar.speck, false, 0, 0, 0);
+      this.paintPiece(this.bar.pts, this.bar.fresh.map(f => f), this.bar.speck, false, 0, 0, 0, this.ci);
     } else if (this.gone) {
       ctx.save(); ctx.globalAlpha = .55 + Math.sin(T * 3) * .2;
       ctx.fillStyle = '#fff'; ctx.font = '800 16px ui-rounded,system-ui,sans-serif'; ctx.textAlign = 'center';
@@ -1377,7 +1408,7 @@ const SoapCut = {
       const fr = pc.fresh.map(f => [{ x: pc.x + f[0].x * Math.cos(pc.angle) - f[0].y * Math.sin(pc.angle), y: pc.y + f[0].x * Math.sin(pc.angle) + f[0].y * Math.cos(pc.angle) }, { x: pc.x + f[1].x * Math.cos(pc.angle) - f[1].y * Math.sin(pc.angle), y: pc.y + f[1].x * Math.sin(pc.angle) + f[1].y * Math.cos(pc.angle) }]);
       const sc = pc.born ? easeBack(clamp((T - pc.born) / .25, 0, 1)) : 1;
       if (sc < 1) { const c = { x: pc.x, y: pc.y }; for (const p of wpts) { p.x = c.x + (p.x - c.x) * sc; p.y = c.y + (p.y - c.y) * sc; } }
-      this.paintPiece(wpts, fr, null, pc.curl, pc.angle, pc.x, pc.y);
+      this.paintPiece(wpts, fr, null, pc.curl, pc.angle, pc.x, pc.y, pc.ci || 0);
     }
     if (this.guide && T - this.guide.at < .4) {
       const gd = this.guide;
@@ -1429,7 +1460,7 @@ const Ball = {
   list: [], popped: 0, spr: [], sc: 1, inflId: -1, lastSq: 0, spawnT: 0,
   build(keep) {
     this.sc = clamp(Math.min(W, H) / 760, .6, 1.3);
-    const S = Math.min(DPR, 2.5);
+    const S = Math.min(DPR, 3);
     this.spr = BALCOLS.map(h => mkBalloon(h, S));
     if (!keep) { this.list = []; this.popped = keep ? this.popped : 0; this.spawnT = 0; }
     if (!this.list.length && !keep) for (let i = 0; i < 12; i++) this.spawnFloat(rnd(.08, .92) * W, rnd(H * .3, H * .92));
@@ -1448,7 +1479,7 @@ const Ball = {
   },
   spawnFloat(x, y, big) {
     if (this.list.length >= 24) return;
-    const R = (big ? rnd(58, 84) : rnd(46, 78)) * this.sc;
+    const R = (big ? rnd(78, 104) : rnd(64, 100)) * this.sc;
     const b = { x, y, vx: rnd(-14, 14), vy: rnd(-52, -26), R, r: R, grow: false, hold: 0, ci: (Math.random() * 6) | 0, ph: rnd(0, TAU), rot: 0, id: -1 };
     const k = this.knotOf(b);
     b.rope = this.mkRope(k.x, k.y);
@@ -1487,7 +1518,7 @@ const Ball = {
   },
   startInflate(p) {
     if (this.list.length >= 24) { p.tgt = 'done'; return; }
-    const R = rnd(64, 84) * this.sc;
+    const R = rnd(86, 110) * this.sc;
     const b = { x: p.x, y: p.y, vx: 0, vy: 0, R, r: 12, grow: true, hold: 0, ci: (Math.random() * 6) | 0, ph: rnd(0, TAU), rot: 0, id: p.id };
     const k = this.knotOf(b);
     b.rope = this.mkRope(k.x, k.y);
@@ -1524,7 +1555,7 @@ const Ball = {
       b.ph += dt * 2;
       b.rot = Math.sin(b.ph * .7) * .14;
       if (b.grow) {
-        b.r += 55 * this.sc * dt;
+        b.r += 70 * this.sc * dt;
         b.hold += dt;
         if (b.r >= b.R * 1.35 || b.hold > 4) { this.pop(i); continue; }
       } else {
@@ -1565,7 +1596,7 @@ const Ball = {
       const dw = w * s, dh = h * s;
       ctx.save();
       if (b.rope) {
-        ctx.strokeStyle = 'rgba(255,255,255,.7)'; ctx.lineWidth = 2; ctx.lineCap = 'round';
+        ctx.strokeStyle = 'rgba(255,255,255,.8)'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
         ctx.beginPath(); ctx.moveTo(k.x, k.y);
         for (let r = 1; r < b.rope.length; r++) ctx.lineTo(b.rope[r].x, b.rope[r].y);
         ctx.stroke();
@@ -1580,9 +1611,15 @@ const Ball = {
 };
 
 /* ---------- 7. SAND — поле высот: валики, осыпание, шейдинг по нормалям ---------- */
+const SAND_SKINS = [
+  { name: ['Золотой', 'Golden'], base: [238, 198, 135], grain: 'rgb(255,232,175)' },
+  { name: ['Роза', 'Rose'], base: [240, 190, 200], grain: 'rgb(255,214,224)' },
+  { name: ['Мята', 'Mint'], base: [185, 225, 195], grain: 'rgb(214,244,222)' },
+  { name: ['Небо', 'Sky'], base: [175, 210, 240], grain: 'rgb(205,231,250)' }
+];
 const Sand = {
   area: { x: 0, y: 0, w: 0, h: 0 }, cell: 7, cols: 0, rows: 0, hf: null,
-  img: null, ig: null, idata: null, speck: null,
+  img: null, ig: null, idata: null, speck: null, twk: null, si: 0,
   moved: 0, dirty: true, resetting: false, lastTap: 0, lastTX: 0, lastTY: 0, lastRust: 0,
   LX: .35, LY: -.55, LZ: .76,
   build(keep) {
@@ -1606,6 +1643,9 @@ const Sand = {
     const il = Math.hypot(this.LX, this.LY, this.LZ);
     this.LX /= il; this.LY /= il; this.LZ /= il;
     this.moved = oldM; this.dirty = true; this.resetting = false;
+    this.twk = [];
+    const R3 = rng(21);
+    for (let i = 0; i < 26; i++) this.twk.push({ x: R3(), y: R3(), p: R3() * TAU });
   },
   inArea(x, y) { const a = this.area; return x >= a.x && x <= a.x + a.w && y >= a.y && y <= a.y + a.h; },
   toCell(x, y) { return [clamp(((x - this.area.x) / this.cell) | 0, 0, this.cols - 1), clamp(((y - this.area.y) / this.cell) | 0, 0, this.rows - 1)]; },
@@ -1626,13 +1666,19 @@ const Sand = {
         this.hf[k] -= take; removed += take;
       } else {
         const f = .5 - .5 * Math.cos((d - R) / R * Math.PI);
-        this.hf[k] += depth * .55 * f / 6;
+        this.hf[k] += depth * 1.1 * f / 5;
       }
     }
     this.moved += removed * .9;
     if (T - this.lastRust > .1) { this.lastRust = T; Snd.sandStep(clamp((speed || 200) / 600, .3, 1.4)); }
+    const sk0 = SAND_SKINS[this.si | 0] || SAND_SKINS[0];
     if (speed > 480 && fx.length < 380) {
-      for (let i = 0; i < 2; i++) fx.push({ t: 'grain', x, y: y - 4, vx: rnd(-90, 90), vy: rnd(-140, -20), g: 520, drag: 1.2, size: rnd(1, 2.4), css: 'rgb(255,230,170)', life: 0, max: rnd(.3, .6) });
+      for (let i = 0; i < 2; i++) fx.push({ t: 'grain', x, y: y - 4, vx: rnd(-90, 90), vy: rnd(-140, -20), g: 520, drag: 1.2, size: rnd(1, 2.4), css: sk0.grain, life: 0, max: rnd(.3, .6) });
+    }
+    if (fx.length < 370) {
+      const wr = R * this.cell;
+      fx.push({ t: 'ring', x, y, r0: wr * .7, r1: wr * 2.6, life: 0, max: .5, css: 'rgba(255,255,255,.7)', a: .4, lw: 2.5 });
+      fx.push({ t: 'ring', x, y, r0: wr * .4, r1: wr * 1.9, life: 0, max: .38, css: 'rgba(255,255,255,.6)', a: .35, lw: 2 });
     }
     this.relax(x0, y0, x1, y1);
     this.dirty = true;
@@ -1653,6 +1699,30 @@ const Sand = {
       }
     }
   },
+  pour(x, y, dt) {
+    if (!this.inArea(x, y)) return;
+    this.resetting = false;
+    const cc = this.toCell(x, y), sig = 16 / this.cell, H0 = 34 * dt;
+    const R = Math.ceil(sig * 2.2);
+    let added = 0;
+    for (let j = Math.max(0, cc[1] - R); j <= Math.min(this.rows - 1, cc[1] + R); j++)
+      for (let i = Math.max(0, cc[0] - R); i <= Math.min(this.cols - 1, cc[0] + R); i++) {
+        const k = j * this.cols + i;
+        if (this.hf[k] > 60) continue;
+        const d2 = (i - cc[0]) * (i - cc[0]) + (j - cc[1]) * (j - cc[1]);
+        const add = H0 * Math.exp(-d2 / (2 * sig * sig));
+        this.hf[k] += add; added += add;
+      }
+    this.moved += added * .5;
+    this.relax(cc[0] - R, cc[1] - R, cc[0] + R, cc[1] + R);
+    this.dirty = true;
+    if (T - this.lastRust > .14) { this.lastRust = T; Snd.sandStep(.5); }
+    if (fx.length < 370) {
+      const sk = SAND_SKINS[this.si | 0] || SAND_SKINS[0];
+      for (let i = 0; i < 2; i++) fx.push({ t: 'grain', x: x + rnd(-10, 10), y: y - 34, vx: rnd(-40, 40), vy: rnd(-160, -60), g: 520, drag: 1, size: rnd(1, 2.4), css: sk.grain, life: 0, max: rnd(.35, .65) });
+    }
+    vibrate(4);
+  },
   mound(x, y) {
     if (!this.inArea(x, y)) return;
     this.resetting = false;
@@ -1671,6 +1741,7 @@ const Sand = {
   render() {
     if (!this.dirty) return;
     this.dirty = false;
+    const sk = SAND_SKINS[this.si | 0] || SAND_SKINS[0];
     const D = this.idata.data, W2 = this.cols, H2 = this.rows, hf = this.hf, c = this.cell;
     for (let j = 0; j < H2; j++) {
       for (let i = 0; i < W2; i++) {
@@ -1681,11 +1752,11 @@ const Sand = {
         const il = 1 / Math.hypot(nx, ny, nz);
         nx *= il; ny *= il; nz *= il;
         const dif = Math.max(0, nx * this.LX + ny * this.LY + nz * this.LZ);
-        let sh = .6 + .58 * dif;
+        let sh = .55 + .68 * dif;
         const h = hf[k];
-        sh *= clamp(1 + h * .018, .55, 1.25);
+        sh *= clamp(1 + h * .026, .45, 1.3);
         const o = k * 4;
-        D[o] = clamp(238 * sh, 0, 255); D[o + 1] = clamp(198 * sh, 0, 255); D[o + 2] = clamp(135 * sh, 0, 255); D[o + 3] = 255;
+        D[o] = clamp(sk.base[0] * sh, 0, 255); D[o + 1] = clamp(sk.base[1] * sh, 0, 255); D[o + 2] = clamp(sk.base[2] * sh, 0, 255); D[o + 3] = 255;
       }
     }
     this.ig.putImageData(this.idata, 0, 0);
@@ -1704,6 +1775,11 @@ const Sand = {
   },
   up() {},
   reset() { this.resetting = true; this.moved = 0; Snd.rustle(); },
+  setSkin(i) {
+    this.si = clamp(i | 0, 0, SAND_SKINS.length - 1);
+    store.sandSi = this.si; saveStore();
+    this.dirty = true; Snd.rustle();
+  },
   update(dt) {
     if (this.resetting) {
       let mx = 0;
@@ -1711,6 +1787,14 @@ const Sand = {
       for (let i = 0; i < this.hf.length; i++) { this.hf[i] += (0 - this.hf[i]) * k; const a = Math.abs(this.hf[i]); if (a > mx) mx = a; }
       this.dirty = true;
       if (mx < .3) { this.resetting = false; for (let i = 0; i < this.hf.length; i++) this.hf[i] = 0; }
+    }
+    for (const q of pointers.values()) {
+      if (q.tgt !== 'dig') continue;
+      const lx = q._lx == null ? q.x : q._lx, ly = q._ly == null ? q.y : q._ly;
+      const dm = Math.hypot(q.x - lx, q.y - ly);
+      q._lx = q.x; q._ly = q.y;
+      q._still = dm < 8 ? (q._still || 0) + dt : 0;
+      if (q._still > .35) this.pour(q.x, q.y, dt);
     }
   },
   draw() {
@@ -1725,6 +1809,14 @@ const Sand = {
     ctx.globalAlpha = .3;
     ctx.drawImage(this.speck, a.x, a.y, a.w, a.h);
     ctx.globalAlpha = 1;
+    if (this.twk) {
+      ctx.fillStyle = '#fff';
+      for (const t of this.twk) {
+        ctx.globalAlpha = .1 + .3 * Math.abs(Math.sin(T * 1.7 + t.p));
+        ctx.fillRect(a.x + t.x * a.w, a.y + t.y * a.h, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
     ctx.restore();
     rr(ctx, a.x, a.y, a.w, a.h, 30);
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.stroke();
@@ -1764,19 +1856,30 @@ function paintLang() {
   const tabs = document.querySelectorAll('.tab .lbl');
   const order = ['pop', 'wrap', 'bubbles', 'slime', 'soap', 'ball', 'sand'];
   tabs.forEach((el, i) => { el.textContent = STR[lang].dock[order[i]]; });
-  const chips = document.querySelectorAll('.chip');
+  const chips = document.querySelectorAll('[data-shape]');
   chips.forEach((el, i) => { el.textContent = STR[lang].chips[i]; });
+  paintChips();
   btnReset.setAttribute('aria-label', resetFor(mode)); btnReset.title = resetFor(mode) + ' (R)';
   paintTheme();
 }
 function toggleLang() { lang = lang === 'ru' ? 'en' : 'ru'; store.lang = lang; saveStore(); paintLang(); showHint(); updateScore(true); }
 btnLang.addEventListener('click', toggleLang);
-const tabs = Array.from(document.querySelectorAll('.tab')), chipsEl = $('chips'), chipBtns = Array.from(document.querySelectorAll('.chip'));
+const tabs = Array.from(document.querySelectorAll('.tab')), chipsEl = $('chips');
+const chipPop = Array.from(document.querySelectorAll('[data-shape]'));
+const chipSoap = Array.from(document.querySelectorAll('[data-soap]'));
+const chipSand = Array.from(document.querySelectorAll('[data-sand]'));
+function paintChips() {
+  const g = mode === 'pop' ? 'pop' : mode === 'soap' ? 'soap' : mode === 'sand' ? 'sand' : null;
+  chipsEl.classList.toggle('hidden', !g);
+  chipsEl.querySelectorAll('[data-group]').forEach(el => { el.style.display = el.dataset.group === g ? 'flex' : 'none'; });
+  if (g === 'soap') chipSoap.forEach((el, i) => { const n = SOAP_SKINS[i].name[lang === 'en' ? 1 : 0]; el.title = n; el.setAttribute('aria-label', n); });
+  if (g === 'sand') chipSand.forEach((el, i) => { const n = SAND_SKINS[i].name[lang === 'en' ? 1 : 0]; el.title = n; el.setAttribute('aria-label', n); });
+}
 function setMode(m) {
   if (!modes[m]) return;
   mode = m; modeT = 0; pointers.clear(); fx.length = 0;
   tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.mode === m)));
-  chipsEl.classList.toggle('hidden', m !== 'pop');
+  paintChips();
   btnReset.setAttribute('aria-label', resetFor(m)); btnReset.title = resetFor(m) + ' (R)';
   Snd.pad(m === 'bubbles');
   showHint();
@@ -1785,7 +1888,9 @@ function setMode(m) {
   if (active && active.scrollIntoView) { try { active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } catch (e) { /* ignore */ } }
 }
 tabs.forEach(t => t.addEventListener('click', () => { Snd.init(); setMode(t.dataset.mode); }));
-chipBtns.forEach(c => c.addEventListener('click', () => { Snd.init(); shape = c.dataset.shape; chipBtns.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Pop.build(false); }));
+chipPop.forEach(c => c.addEventListener('click', () => { Snd.init(); shape = c.dataset.shape; chipPop.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Pop.build(false); }));
+chipSoap.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSoap.forEach(x => x.setAttribute('aria-pressed', String(x === c))); SoapCut.setSkin(+c.dataset.soap); }));
+chipSand.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSand.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Sand.setSkin(+c.dataset.sand); }));
 const scoreEl = $('score'), scoreText = $('scoreText'); let lastScore = '';
 function updateScore(force) {
   let s = '';
@@ -1876,6 +1981,10 @@ function frame(now) {
 }
 paintSound(); paintLang();
 initTG();
+SoapCut.ci = clamp(store.soapCi | 0, 0, SOAP_SKINS.length - 1);
+Sand.si = clamp(store.sandSi | 0, 0, SAND_SKINS.length - 1);
+chipSoap.forEach((el, i) => el.setAttribute('aria-pressed', String(i === SoapCut.ci)));
+chipSand.forEach((el, i) => el.setAttribute('aria-pressed', String(i === Sand.si)));
 resize();
 setMode('pop');
 requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });

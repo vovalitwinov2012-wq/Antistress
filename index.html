@@ -35,10 +35,26 @@
   <div class="toast glass" id="toast" role="status"></div>
   <div class="hint" id="hint"></div>
 
-  <nav class="chips" id="chips" aria-label="Форма поп-ита">
-    <button class="chip glass" data-shape="grid" aria-pressed="true">Радуга</button>
-    <button class="chip glass" data-shape="heart" aria-pressed="false">Сердце</button>
-    <button class="chip glass" data-shape="circle" aria-pressed="false">Круг</button>
+  <nav class="chips" id="chips" aria-label="Варианты">
+    <span data-group="pop">
+      <button class="chip glass" data-shape="grid" aria-pressed="true">Радуга</button>
+      <button class="chip glass" data-shape="heart" aria-pressed="false">Сердце</button>
+      <button class="chip glass" data-shape="circle" aria-pressed="false">Круг</button>
+    </span>
+    <span data-group="soap">
+      <button class="chip dot glass" data-soap="0" aria-pressed="true" style="background:#f6e6cb" title="Кремовый"></button>
+      <button class="chip dot glass" data-soap="1" aria-pressed="false" style="background:#f6cfd8" title="Роза"></button>
+      <button class="chip dot glass" data-soap="2" aria-pressed="false" style="background:#cdeeda" title="Мята"></button>
+      <button class="chip dot glass" data-soap="3" aria-pressed="false" style="background:#ddd3f5" title="Лаванда"></button>
+      <button class="chip dot glass" data-soap="4" aria-pressed="false" style="background:#cfe6f7" title="Небо"></button>
+      <button class="chip dot glass" data-soap="5" aria-pressed="false" style="background:#f7e3b0" title="Мёд"></button>
+    </span>
+    <span data-group="sand">
+      <button class="chip dot glass" data-sand="0" aria-pressed="true" style="background:#eec687" title="Золотой"></button>
+      <button class="chip dot glass" data-sand="1" aria-pressed="false" style="background:#f0bec8" title="Роза"></button>
+      <button class="chip dot glass" data-sand="2" aria-pressed="false" style="background:#b9e1c3" title="Мята"></button>
+      <button class="chip dot glass" data-sand="3" aria-pressed="false" style="background:#afd2f0" title="Небо"></button>
+    </span>
   </nav>
 
   <nav class="dock glass" id="dock" role="tablist" aria-label="Игрушки">
