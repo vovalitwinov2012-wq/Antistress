@@ -32,10 +32,10 @@ function vibrate(ms) {
 }
 
 /* ---------- persistent settings ---------- */
-const store = { theme: 'sunset', lang: 'ru', muted: false, soapCi: 0, sandSi: 0, neonCi: 7, neonWi: 1, spinSi: 0 };
+const store = { theme: 'sunset', lang: 'ru', muted: false, soapCi: 0, sandSi: 0, neonCi: 7, neonWi: 1, spinSi: 0, slimeHi: 0, slimeVi: 1 };
 try {
   const raw = localStorage.getItem('antistress-v2');
-  if (raw) { const s = JSON.parse(raw); if (s.theme) store.theme = s.theme; if (s.lang) store.lang = s.lang; if (typeof s.muted === 'boolean') store.muted = s.muted; if (s.soapCi >= 0) store.soapCi = s.soapCi | 0; if (s.sandSi >= 0) store.sandSi = s.sandSi | 0; if (s.neonCi >= 0) store.neonCi = s.neonCi | 0; if (s.neonWi >= 0) store.neonWi = s.neonWi | 0; if (s.spinSi >= 0) store.spinSi = s.spinSi | 0; }
+  if (raw) { const s = JSON.parse(raw); if (s.theme) store.theme = s.theme; if (s.lang) store.lang = s.lang; if (typeof s.muted === 'boolean') store.muted = s.muted; if (s.soapCi >= 0) store.soapCi = s.soapCi | 0; if (s.sandSi >= 0) store.sandSi = s.sandSi | 0; if (s.neonCi >= 0) store.neonCi = s.neonCi | 0; if (s.neonWi >= 0) store.neonWi = s.neonWi | 0; if (s.spinSi >= 0) store.spinSi = s.spinSi | 0; if (s.slimeHi >= 0) store.slimeHi = s.slimeHi | 0; if (s.slimeVi >= 0) store.slimeVi = s.slimeVi | 0; }
   else { const nav = (navigator.language || 'ru').toLowerCase(); store.lang = nav.indexOf('en') === 0 ? 'en' : 'ru'; }
 } catch (e) { /* ignore */ }
 function saveStore() { try { localStorage.setItem('antistress-v2', JSON.stringify(store)); } catch (e) { /* ignore */ } }
@@ -51,13 +51,13 @@ const STR = {
       pop: 'Нажимай на пупырышки — можно водить пальцем',
       wrap: 'Води пальцем по плёнке — пузырьки лопаются',
       bubbles: 'Лопай пузыри. Коснись пустого места — выдуешь новые',
-      slime: 'Мни и тяни слайм — он тянется и складывается',
+      slime: 'Мни и тяни слайм двумя пальцами. Цвет и мягкость — кружками выше',
       soap: 'Режь брусок под любым углом. Цвет — кружками выше',
       ball: 'Быстрый тап — залп шаров, держи — надуешь большой',
       sand: 'Веди — песок расходится волнами. Держи палец — подсыпается горка',
       glow: 'Рисуй светом: цвет и ширина — кружками выше',
       ferro: 'Палец — магнит: опилки липнут облаком. Отпусти — разлетятся',
-      spin: 'Держи середину — таскай, крути за край туда-сюда. Скины — кнопкой снизу',
+      spin: 'Мазки по краю крутят, тычок тормозит. Центр держишь — разгон. Скины — кнопкой',
     },
     reset: { pop: 'Перевернуть всё обратно', wrap: 'Достать новую плёнку', bubbles: 'Выдуть ещё пузырей', slime: 'Новый слайм', soap: 'Новый брусок мыла', ball: 'Выпустить ещё шаров', sand: 'Разровнять песок', glow: 'Стереть рисунок', ferro: 'Убрать магнит', spin: 'Остановить' },
     donePop: 'Всё нажато — переворачиваю обратно',
@@ -71,13 +71,13 @@ const STR = {
       pop: 'Press the bubbles — you can slide your finger',
       wrap: 'Slide over the film — pop the wrap',
       bubbles: 'Pop bubbles. Tap empty space to blow new ones',
-      slime: 'Squish and stretch the slime — it folds and flows',
+      slime: 'Squish and stretch with two fingers. Color and softness in the dots above',
       soap: 'Cut at any angle. Change color with the dots above',
       ball: 'Quick tap bursts balloons, hold inflates a big one',
       sand: 'Swipe — sand ripples away. Hold to pour a mound',
       glow: 'Draw with light: color and width in the dots above',
       ferro: 'Finger is a magnet: filings cling as a cloud. Release to scatter',
-      spin: 'Hold the center to drag, spin the rim back and forth. Skins in the button below',
+      spin: 'Strokes spin it up, a tap brakes. Hold center to boost. Skins in the button',
     },
     reset: { pop: 'Flip everything back', wrap: 'Get new film', bubbles: 'Blow more bubbles', slime: 'Fresh slime', soap: 'New soap bar', ball: 'Release more balloons', sand: 'Level the sand', glow: 'Clear drawing', ferro: 'Remove magnet', spin: 'Stop' },
     donePop: 'All pressed — flipping back',
@@ -921,9 +921,23 @@ const Soap = {
 };
 
 /* ---------- 4. SLIME — soft-body: масса-пружины + давление объёма ---------- */
+const SLIME_HUES = [
+  { name: ['Розовый', 'Pink'], h: 320 },
+  { name: ['Фиолет', 'Violet'], h: 280 },
+  { name: ['Мята', 'Mint'], h: 190 },
+  { name: ['Лайм', 'Lime'], h: 130 },
+  { name: ['Мёд', 'Honey'], h: 45 },
+  { name: ['Красный', 'Red'], h: 0 }
+];
+const SLIME_VI = [
+  { name: ['Мягкий', 'Soft'], mem: 18, damp: .99 },
+  { name: ['Средний', 'Medium'], mem: 26, damp: .985 },
+  { name: ['Твёрдый', 'Firm'], mem: 38, damp: .976 }
+];
 const Slime = {
   nodes: [], N: 28, cx: 0, cy: 0, R: 150, rest: 30, area0: 1,
-  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, craters: [],
+  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, craters: [], glint: [], ripples: [],
+  hi: 0, vi: 1, interacted: false,
   folds: 0, stretchPeak: 0, hue: 320, lastSnd: 0, born: -9,
   build(keep) {
     const oldF = keep ? this.folds : 0;
@@ -939,7 +953,14 @@ const Slime = {
     }
     this.area0 = Math.max(1, this.polyArea());
     this.folds = oldF; this.grab = false; this.stretchPeak = 0;
-    if (!keep || !this.craters) this.craters = [];
+    this.hue = SLIME_HUES[this.hi] ? SLIME_HUES[this.hi].h : 320;
+    if (!keep || !this.glint.length) {
+      this.glint = [];
+      const Rg = rng(77);
+      for (let i = 0; i < 14; i++) this.glint.push({ k: 0, a: Rg() * TAU, f: .15 + Rg() * .55, r: 6 + Rg() * 10, sp: rnd(.02, .09) });
+      for (let i = 0; i < 12; i++) this.glint.push({ k: 1, a: Rg() * TAU, f: .1 + Rg() * .7, r: 1.5 + Rg() * 1.8, sp: rnd(.5, 1.6) });
+    }
+    if (!keep) { this.ripples = []; }
     this.born = T;
   },
   polyArea() {
@@ -982,6 +1003,9 @@ const Slime = {
       this.grab = true; this.grabIdx = hit.i; p.tgt = 'grab'; p.grabIdx = hit.i;
       p.t0 = T; p.sx = p.x; p.sy = p.y;
       this.dent(hit.i, 14);
+      this.interacted = true;
+      this.ripples.push({ x: p.x, y: p.y, at: T });
+      if (this.ripples.length > 4) this.ripples.shift();
       Snd.slimeGrab(this.panOf(p.x)); vibrate(8);
     } else {
       for (let k = -3; k <= 3; k++) {
@@ -996,6 +1020,7 @@ const Slime = {
     if (p.tgt !== 'grab') return;
     const dx = p.x - p.px, dy = p.y - p.py, d = Math.hypot(dx, dy);
     if (T - this.lastSnd > .09 && d > 4) { this.lastSnd = T; Snd.slimeStretch(this.panOf(p.x), clamp(d / 22, .4, 1.8)); }
+    if (d > 26 && fx.length < 380) fx.push({ t: 'spark', x: p.x + rnd(-8, 8), y: p.y + rnd(-8, 8), vx: rnd(-40, 40), vy: rnd(-60, 20), g: 200, drag: 2.5, size: rnd(1, 2.4), css: 'hsla(' + this.hue + ',95%,80%,1)', life: 0, max: rnd(.25, .5) });
   },
   release() {
     if (this.stretchPeak > 1.45) {
@@ -1025,6 +1050,17 @@ const Slime = {
     if (this.grab && (!p || p.tgt === 'grab')) this.release();
   },
   reset() { this.build(false); Snd.slimeGrab(0); },
+  setHue(i) {
+    this.hi = clamp(i | 0, 0, SLIME_HUES.length - 1);
+    store.slimeHue = this.hi; saveStore();
+    this.hue = SLIME_HUES[this.hi].h;
+    Snd.twinkle(0);
+  },
+  setVi(i) {
+    this.vi = clamp(i | 0, 0, SLIME_VI.length - 1);
+    store.slimeVi = this.vi; saveStore();
+    Snd.slimeGrab(0);
+  },
   step(h, grabs) {
     const N = this.N, nodes = this.nodes, R = this.R;
     const c = this.centroid();
@@ -1040,11 +1076,12 @@ const Slime = {
       p.ax += nx * F; p.ay += ny * F; q.ax += nx * F; q.ay += ny * F;
     }
     const kA = (grabs.length ? 20 : 90) / N;
-    const damp = reduceMotion ? .94 : .985, h2 = h * h;
+    const VI = SLIME_VI[this.vi] || SLIME_VI[1];
+    const damp = reduceMotion ? .94 : VI.damp, h2 = h * h;
     for (const n of nodes) {
       n.ax += (this.cx - c.x) * kA; n.ay += (this.cy - c.y) * kA;
       const hx = this.cx + Math.cos(n.ha) * R, hy = this.cy + Math.sin(n.ha) * R;
-      n.ax += (hx - n.x) * 26; n.ay += (hy - n.y) * 26;
+      n.ax += (hx - n.x) * VI.mem; n.ay += (hy - n.y) * VI.mem;
       if (!reduceMotion) { n.ax += Math.sin(T * 1.3 + n.ha * 2) * 40; n.ay += Math.cos(T * 1.1 + n.ha * 3) * 30; }
       let vx = (n.x - n.px) * damp, vy = (n.y - n.py) * damp;
       const sp = Math.hypot(vx, vy);
@@ -1130,6 +1167,23 @@ const Slime = {
     if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') { grabPt = q; break; }
     const gd = grabPt ? Math.hypot(grabPt.x - c.x, grabPt.y - c.y) : 0;
     ctx.save();
+    const halo = ctx.createRadialGradient(c.x, c.y, R * .4, c.x, c.y, R * 1.9);
+    halo.addColorStop(0, 'hsla(' + this.hue + ',90%,70%,.22)');
+    halo.addColorStop(1, 'hsla(' + this.hue + ',90%,70%,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath(); ctx.arc(c.x, c.y, R * 1.9, 0, TAU); ctx.fill();
+    ctx.restore();
+    for (const rp of this.ripples) {
+      const age = T - rp.at;
+      if (age > .9) continue;
+      const k = age / .9;
+      ctx.globalAlpha = (1 - k) * .35; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, R * (.25 + .85 * k), 0, TAU); ctx.stroke();
+      ctx.globalAlpha = (1 - k) * .5; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, 5 * (1 - k) + 1, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+    ctx.save();
     ctx.fillStyle = 'rgba(20,0,60,.35)';
     ctx.beginPath(); ctx.ellipse(c.x, Math.min(H - 90, c.y + R * 1.02), R * 1.02, R * .2, 0, 0, TAU); ctx.fill();
     if (grabPt && gd > R * 1.5) {
@@ -1172,6 +1226,27 @@ const Slime = {
     sh = ctx.createRadialGradient(c.x - R * .3, c.y - R * .35, R * .05, c.x - R * .3, c.y - R * .35, R * .95);
     sh.addColorStop(0, 'rgba(255,255,255,.5)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sh; ctx.fillRect(c.x - R * 1.6, c.y - R * 1.6, R * 3.2, R * 3.2);
+    for (const bl of this.glint) {
+      const aa = bl.a + T * bl.sp * .12;
+      const rrf = bl.f * R * (1 + this.stretchPeak * .22);
+      const bx = c.x + Math.cos(aa) * rrf, by = c.y + Math.sin(aa) * rrf * .92;
+      if (bl.k === 0) {
+        const bg = ctx.createRadialGradient(bx - bl.r * .3, by - bl.r * .3, bl.r * .1, bx, by, bl.r);
+        bg.addColorStop(0, 'rgba(255,255,255,.6)'); bg.addColorStop(.6, 'rgba(255,255,255,.12)'); bg.addColorStop(1, 'rgba(255,255,255,.3)');
+        ctx.fillStyle = bg; ctx.beginPath(); ctx.arc(bx, by, bl.r, 0, TAU); ctx.fill();
+      } else {
+        ctx.globalAlpha = .25 + .45 * Math.abs(Math.sin(T * bl.sp + bl.a));
+        ctx.fillStyle = '#fff';
+        ctx.beginPath(); ctx.arc(bx, by, bl.r, 0, TAU); ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+    }
+    if (this.stretchPeak > 1.2) {
+      ctx.globalAlpha = clamp((this.stretchPeak - 1.2) * .18, 0, .22);
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(c.x - R * 1.6, c.y - R * 1.6, R * 3.2, R * 3.2);
+      ctx.globalAlpha = 1;
+    }
     if (this.stretchPeak > 1.2) {
       const px = -this.grabDirY, py = this.grabDirX;
       ctx.strokeStyle = 'rgba(50,0,80,.28)'; ctx.lineWidth = Math.max(3, R * .05); ctx.lineCap = 'round';
@@ -1185,11 +1260,28 @@ const Slime = {
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
     ctx.beginPath(); this.tracePath(); ctx.stroke();
+    ctx.strokeStyle = 'rgba(255,255,255,.32)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.arc(c.x, c.y, R * .99, -2.5, -.7); ctx.stroke();
+    ctx.strokeStyle = 'hsla(' + ((this.hue + 40) % 360) + ',70%,30%,.35)'; ctx.lineWidth = 5;
+    ctx.beginPath(); ctx.arc(c.x, c.y, R * .99, .6, 2.3); ctx.stroke();
     ctx.save(); ctx.translate(c.x - R * .34, c.y - R * .4); ctx.rotate(-.5); ctx.scale(1, .55);
     const hi = ctx.createRadialGradient(0, 0, 0, 0, 0, R * .3);
     hi.addColorStop(0, 'rgba(255,255,255,.95)'); hi.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = hi; ctx.beginPath(); ctx.arc(0, 0, R * .3, 0, TAU); ctx.fill(); ctx.restore();
     ctx.restore();
+    if (!this.interacted) {
+      const hx = c.x, hy = c.y - R * 1.45, pl = (T * .9) % 1;
+      ctx.save();
+      ctx.globalAlpha = .5 * (1 - pl);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(hx, hy, 14 + pl * 34, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .85;
+      ctx.fillStyle = 'hsla(' + this.hue + ',90%,72%,1)';
+      ctx.beginPath(); ctx.arc(hx, hy, 13, 0, TAU); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.9)';
+      ctx.beginPath(); ctx.arc(hx - 4, hy - 4, 4, 0, TAU); ctx.fill();
+      ctx.restore();
+    }
   },
   score() { return lang === 'en' ? ('Folds: ' + this.folds) : ('Складок: ' + this.folds); }
 };
@@ -2034,7 +2126,7 @@ const Glow = {
 
 /* ---------- 9. FERRO — металлические опилки: облако, шипы, разлёт ---------- */
 const Ferro = {
-  pts: [], N: 300, pulses: 0, shards: null, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
+  pts: [], N: 350, pulses: 0, shards: null, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
   build(keep) {
     const old = keep ? this.pulses : 0;
     if (!this.shards) {
@@ -2067,12 +2159,11 @@ const Ferro = {
   },
   up(p) {
     if (!p || p.tgt !== 'mag') return;
-    const m = { x: p.x, y: p.y };
     for (const q of this.pts) {
-      const dx = q.x - m.x, dy = q.y - m.y, d = Math.hypot(dx, dy) + 1;
-      if (d < 340) {
-        const f = (1 - d / 340) * (420 + Math.hypot(this.fvx, this.fvy) * .8);
-        q.vx += dx / d * f + this.fvx * 1; q.vy += dy / d * f + this.fvy * 1;
+      const dx = q.x - p.x, dy = q.y - p.y, d = Math.hypot(dx, dy) + 1;
+      if (d < 380) {
+        const a = rnd(0, TAU), v = rnd(200, 600);
+        q.vx += Math.cos(a) * v + this.fvx * .4; q.vy += Math.sin(a) * v + this.fvy * .4;
       }
     }
     Snd.magPulse((p.x / W - .5) * .9); vibrate(12);
@@ -2095,10 +2186,11 @@ const Ferro = {
       q.vx += rnd(-1, 1) * 60 * h; q.vy += rnd(-1, 1) * 60 * h;
       if (m) {
         const dx = m.x - q.x, dy = m.y - q.y, d = Math.hypot(dx, dy) + 1;
-        if (d < 340) {
-          const F = Math.min(3200, 140000 / (d * d + 2500));
-          q.vx += (dx / d * F + -dy / d * F * .15) * h;
-          q.vy += (dy / d * F + dx / d * F * .15) * h;
+        if (d < 380) {
+          const sp = Math.min(520, d * 7), k = 1 - Math.exp(-h * 5);
+          q.vx += (dx / d * sp - q.vx) * k;
+          q.vy += (dy / d * sp - q.vy) * k;
+          q.vx += -dy / d * sp * .12 * k; q.vy += dx / d * sp * .12 * k;
           if (d < 130) cloud++;
         }
       }
@@ -2190,7 +2282,7 @@ const SPIN_SKINS = [
 ];
 const SPIN_TONES = SPIN_SKINS.map(s => ({ a: tone(s.c1), b: tone(s.c2) }));
 const Spin = {
-  x: 0, y: 0, R: 160, ang: 0, vel: 0, maxRPM: 0, spins: 0, prevSec: 0, si: 0, bvx: 0, bvy: 0,
+  x: 0, y: 0, R: 160, ang: 0, vel: 0, maxRPM: 0, spins: 0, prevSec: 0, si: 0, bvx: 0, bvy: 0, body: null, boosting: false, lastBoostSnd: 0,
   build(keep) {
     const oM = keep ? this.maxRPM : 0, oS = keep ? this.spins : 0;
     this.x = W / 2; this.y = H * .52;
@@ -2198,11 +2290,14 @@ const Spin = {
     if (!keep) this.ang = rnd(0, TAU);
     this.vel = keep ? this.vel : 0;
     this.maxRPM = oM; this.spins = oS; this.prevSec = 0;
+    this.body = this.renderBody();
   },
   down(p) {
     const d = Math.hypot(p.x - this.x, p.y - this.y);
-    p.tgt = d < this.R * .4 ? 'drag' : 'spin';
-    p._mt = performance.now(); p._lx = p.x; p._ly = p.y;
+    p.tgt = d < this.R * .22 ? 'boost' : d < this.R * .4 ? 'drag' : 'spin';
+    p._mt = performance.now(); p._fa = null; p.path = 0; p.t0 = T; p._stopped = false;
+    p._lx = p.x; p._ly = p.y;
+    if (p.tgt === 'boost') { Snd.tick(1200, .15); vibrate(6); }
   },
   move(p) {
     if (p.tgt === 'drag') {
@@ -2220,22 +2315,45 @@ const Spin = {
     while (d > Math.PI) d -= TAU;
     while (d < -Math.PI) d += TAU;
     p._fa = fa;
+    const stepLen = Math.hypot(p.x - p.px, p.y - p.py);
+    p.path = (p.path || 0) + stepLen;
     const r = Math.hypot(p.x - this.x, p.y - this.y);
     if (r < this.R * .3 || Math.abs(d) > 1.2) return;
     const now = performance.now(), dtm = Math.max(8, now - (p._mt || now)) / 1000;
     p._mt = now;
-    this.ang += d;
-    this.vel = clamp(lerp(this.vel, d / dtm, .5), -30, 30);
+    if (!p._stopped && p.path > 26) {
+      this.vel = clamp(this.vel + (d / dtm) * .22, -30, 30);
+    } else {
+      this.vel *= Math.exp(-dtm * 6);
+      if (Math.abs(this.vel) < 3) { p._stopped = true; this.vel = 0; }
+      if (p._stopped) {
+        this.ang += d;
+        this.vel = clamp(lerp(this.vel, d / dtm, .4), -30, 30);
+      }
+    }
     if (Math.abs(d) > .02) vibrate(3);
   },
-  up(p) { if (p && p.tgt === 'drag') vibrate(6); },
+  up(p) {
+    if (!p) return;
+    if (p.tgt === 'drag') vibrate(6);
+    else if (p.tgt === 'spin' && (p.path || 0) < 16 && T - (p.t0 || 0) < .3) { this.vel = 0; Snd.tick(900, .2); vibrate(8); }
+  },
   reset() { this.vel = 0; this.bvx = 0; this.bvy = 0; Snd.rustle(); },
   setSkin(i) {
     this.si = clamp(i | 0, 0, SPIN_SKINS.length - 1);
     store.spinSi = this.si; saveStore();
+    this.body = this.renderBody();
     Snd.tick(2400, .2);
   },
   update(dt) {
+    let boost = false;
+    for (const q of pointers.values()) if (q.tgt === 'boost') { boost = true; break; }
+    this.boosting = boost;
+    if (boost) {
+      const dir = this.vel < -1 ? -1 : 1;
+      this.vel = lerp(this.vel, dir * 30, 1 - Math.exp(-dt * 2));
+      if (T - this.lastBoostSnd > .2) { this.lastBoostSnd = T; Snd.tick(1200 + Math.abs(this.vel) * 40, .12); }
+    }
     let dragging = false;
     for (const q of pointers.values()) if (q.tgt === 'drag') { dragging = true; break; }
     if (!dragging) {
@@ -2278,87 +2396,111 @@ const Spin = {
     g.fillStyle = 'rgba(255,255,255,.8)';
     g.beginPath(); g.arc(x - r * .3, y - r * .35, r * .16, 0, TAU); g.fill();
   },
-  drawBody(ghost) {
+  drawBodyOn(g, ghost) {
     const R = this.R, sk = SPIN_SKINS[this.si] || SPIN_SKINS[0], tn = SPIN_TONES[this.si] || SPIN_TONES[0];
     const t1 = tn.a, t2 = tn.b;
     const n = (sk.form === 'disc' || sk.form === 'hex' || sk.form === 'tri') ? 0 : sk.lobes, wr = R * .3;
-    ctx.save();
-    ctx.translate(this.x, this.y); ctx.rotate(this.ang);
-    if (ghost) ctx.globalAlpha = .22;
+    if (ghost) g.globalAlpha = .22;
     if (sk.form === 'disc') {
-      const gr = ctx.createRadialGradient(-R * .2, -R * .2, R * .1, 0, 0, R);
+      const gr = g.createRadialGradient(-R * .2, -R * .2, R * .1, 0, 0, R);
       gr.addColorStop(0, rgba(t1.hi, 1)); gr.addColorStop(.6, rgba(t1.base, 1)); gr.addColorStop(1, rgba(t2.lo, 1));
-      ctx.fillStyle = gr;
-      ctx.beginPath(); ctx.arc(0, 0, R * .98, 0, TAU); ctx.fill();
-      ctx.strokeStyle = rgba(t2.deep, .9); ctx.lineWidth = 4; ctx.stroke();
-      ctx.fillStyle = 'rgba(15,10,40,.55)';
-      for (let i = 0; i < 3; i++) { const a = i * TAU / 3; ctx.beginPath(); ctx.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .12, 0, TAU); ctx.fill(); }
-      ctx.fillStyle = rgba(t2.base, 1);
-      ctx.beginPath(); ctx.arc(R * .8, 0, R * .06, 0, TAU); ctx.fill();
+      g.fillStyle = gr;
+      g.beginPath(); g.arc(0, 0, R * .98, 0, TAU); g.fill();
+      g.strokeStyle = rgba(t2.deep, .9); g.lineWidth = 4; g.stroke();
+      g.fillStyle = 'rgba(15,10,40,.55)';
+      for (let i = 0; i < 3; i++) { const a = i * TAU / 3; g.beginPath(); g.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .12, 0, TAU); g.fill(); }
+      g.fillStyle = rgba(t2.base, 1);
+      g.beginPath(); g.arc(R * .8, 0, R * .06, 0, TAU); g.fill();
     } else if (sk.form === 'hex' || sk.form === 'tri') {
       const nv = sk.form === 'hex' ? 6 : 3, rr2 = R * .95;
-      const gr = ctx.createLinearGradient(-rr2, -rr2, rr2, rr2);
+      const gr = g.createLinearGradient(-rr2, -rr2, rr2, rr2);
       gr.addColorStop(0, rgba(t1.hi, 1)); gr.addColorStop(.5, rgba(t1.base, 1)); gr.addColorStop(1, rgba(t2.lo, 1));
-      ctx.fillStyle = gr; ctx.beginPath();
-      for (let i = 0; i < nv; i++) { const a = i / nv * TAU - Math.PI / 2, px = Math.cos(a) * rr2, py = Math.sin(a) * rr2; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }
-      ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = rgba(t2.deep, .9); ctx.lineWidth = 3; ctx.stroke();
-      for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; this.weight(ctx, Math.cos(a) * rr2 * .62, Math.sin(a) * rr2 * .62, R * .2, t2); }
+      g.fillStyle = gr; g.beginPath();
+      for (let i = 0; i < nv; i++) { const a = i / nv * TAU - Math.PI / 2, px = Math.cos(a) * rr2, py = Math.sin(a) * rr2; if (i) g.lineTo(px, py); else g.moveTo(px, py); }
+      g.closePath(); g.fill();
+      g.strokeStyle = rgba(t2.deep, .9); g.lineWidth = 3; g.stroke();
+      for (let i = 0; i < 3; i++) { const a = i / 3 * TAU; this.weight(g, Math.cos(a) * rr2 * .62, Math.sin(a) * rr2 * .62, R * .2, t2); }
     } else {
       for (let i = 0; i < n; i++) {
-        ctx.save(); ctx.rotate(i * TAU / n);
+        g.save(); g.rotate(i * TAU / n);
         if (sk.form === 'star') {
-          const gr = ctx.createLinearGradient(0, 0, R, 0);
+          const gr = g.createLinearGradient(0, 0, R, 0);
           gr.addColorStop(0, rgba(t1.base, 1)); gr.addColorStop(1, rgba(t2.base, 1));
-          ctx.fillStyle = gr;
-          ctx.beginPath(); ctx.moveTo(R * .1, -R * .13); ctx.lineTo(R * 1.02, 0); ctx.lineTo(R * .1, R * .13); ctx.closePath(); ctx.fill();
-          ctx.fillStyle = 'rgba(255,255,255,.75)';
-          ctx.beginPath(); ctx.arc(R * .9, 0, R * .05, 0, TAU); ctx.fill();
+          g.fillStyle = gr;
+          g.beginPath(); g.moveTo(R * .1, -R * .13); g.lineTo(R * 1.02, 0); g.lineTo(R * .1, R * .13); g.closePath(); g.fill();
+          g.fillStyle = 'rgba(255,255,255,.75)';
+          g.beginPath(); g.arc(R * .9, 0, R * .05, 0, TAU); g.fill();
         } else if (sk.form === 'blade') {
-          const gr = ctx.createLinearGradient(0, 0, R, 0);
+          const gr = g.createLinearGradient(0, 0, R, 0);
           gr.addColorStop(0, rgba(t1.hi, 1)); gr.addColorStop(.5, rgba(t1.base, 1)); gr.addColorStop(1, rgba(t2.lo, 1));
-          ctx.fillStyle = gr;
-          ctx.beginPath(); ctx.moveTo(R * .08, -R * .2); ctx.lineTo(R * 1.0, -R * .05); ctx.lineTo(R * 1.0, R * .05); ctx.lineTo(R * .08, R * .2); ctx.closePath(); ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = 2;
-          ctx.beginPath(); ctx.moveTo(R * .15, -R * .1); ctx.lineTo(R * .9, -R * .02); ctx.stroke();
-          this.weight(ctx, R * .88, 0, wr * .9, t2);
+          g.fillStyle = gr;
+          g.beginPath(); g.moveTo(R * .08, -R * .2); g.lineTo(R * 1.0, -R * .05); g.lineTo(R * 1.0, R * .05); g.lineTo(R * .08, R * .2); g.closePath(); g.fill();
+          g.strokeStyle = 'rgba(255,255,255,.4)'; g.lineWidth = 2;
+          g.beginPath(); g.moveTo(R * .15, -R * .1); g.lineTo(R * .9, -R * .02); g.stroke();
+          this.weight(g, R * .88, 0, wr * .9, t2);
         } else {
-          this.arm(ctx, R * .98, R * .34, t1);
-          this.weight(ctx, R * .92, 0, wr, t2);
+          this.arm(g, R * .98, R * .34, t1);
+          this.weight(g, R * .92, 0, wr, t2);
         }
-        ctx.restore();
+        g.restore();
       }
       if (sk.led) for (let i = 0; i < n; i++) {
         const a = i / n * TAU;
-        ctx.fillStyle = sk.led[i % sk.led.length];
-        ctx.beginPath(); ctx.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .07, 0, TAU); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,.85)';
-        ctx.beginPath(); ctx.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .03, 0, TAU); ctx.fill();
+        g.fillStyle = sk.led[i % sk.led.length];
+        g.beginPath(); g.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .07, 0, TAU); g.fill();
+        g.fillStyle = 'rgba(255,255,255,.85)';
+        g.beginPath(); g.arc(Math.cos(a) * R * .55, Math.sin(a) * R * .55, R * .03, 0, TAU); g.fill();
       }
     }
-    const cap = ctx.createRadialGradient(-R * .1, -R * .12, R * .02, 0, 0, R * .34);
+    g.globalAlpha = 1;
+  },
+  drawCapOn(g) {
+    const R = this.R;
+    g.save(); g.translate(this.x, this.y);
+    if (this.boosting) {
+      const pl = .5 + .5 * Math.sin(T * 10);
+      g.strokeStyle = 'rgba(120,220,255,' + (.35 + .4 * pl).toFixed(2) + ')';
+      g.lineWidth = 5;
+      g.beginPath(); g.arc(0, 0, R * .3 + 4 + pl * 3, 0, TAU); g.stroke();
+    }
+    const cap = g.createRadialGradient(-R * .1, -R * .12, R * .02, 0, 0, R * .34);
     cap.addColorStop(0, '#ffffff'); cap.addColorStop(.4, '#cfd6ea'); cap.addColorStop(1, '#5a6285');
-    ctx.fillStyle = cap;
-    ctx.beginPath(); ctx.arc(0, 0, R * .3, 0, TAU); ctx.fill();
-    ctx.fillStyle = '#2a2f4a';
-    ctx.beginPath(); ctx.arc(0, 0, R * .11, 0, TAU); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,.85)';
-    ctx.beginPath(); ctx.arc(-R * .06, -R * .07, R * .035, 0, TAU); ctx.fill();
-    ctx.restore();
+    g.fillStyle = cap;
+    g.beginPath(); g.arc(0, 0, R * .3, 0, TAU); g.fill();
+    g.fillStyle = '#2a2f4a';
+    g.beginPath(); g.arc(0, 0, R * .11, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.85)';
+    g.beginPath(); g.arc(-R * .06, -R * .07, R * .035, 0, TAU); g.fill();
+    g.restore();
+  },
+  renderBody() {
+    const R = this.R, S = Math.min(DPR, 2), half = R * 1.35;
+    const c = mkCanvas(half * 2 * S, half * 2 * S), g = c.getContext('2d');
+    g.scale(S, S); g.translate(half, half);
+    this.drawBodyOn(g, false);
+    return c;
   },
   draw() {
-    const R = this.R;
+    const R = this.R, half = R * 1.35;
+    if (!this.body) this.body = this.renderBody();
     ctx.save();
     ctx.fillStyle = 'rgba(20,0,60,.18)';
     ctx.beginPath(); ctx.ellipse(this.x + clamp(this.bvx * .02, -14, 14), this.y + R * 1.15, R * 1.1, R * .18, 0, 0, TAU); ctx.fill();
     ctx.restore();
     if (Math.abs(this.vel) > 8) {
-      const off = clamp(this.vel * .02, -.3, .3), keep = this.ang;
-      this.ang = keep - off; this.drawBody(true);
-      this.ang = keep + off; this.drawBody(true);
-      this.ang = keep;
+      const off = clamp(this.vel * .02, -.3, .3);
+      for (const sgn of [-1, 1]) {
+        ctx.save(); ctx.globalAlpha = .18;
+        ctx.translate(this.x, this.y); ctx.rotate(this.ang + sgn * off);
+        ctx.drawImage(this.body, -half, -half, half * 2, half * 2);
+        ctx.restore();
+      }
     }
-    this.drawBody(false);
+    ctx.save();
+    ctx.translate(this.x, this.y); ctx.rotate(this.ang);
+    ctx.drawImage(this.body, -half, -half, half * 2, half * 2);
+    ctx.restore();
+    this.drawCapOn(ctx);
   },
   score() {
     const m = Math.round(this.maxRPM), s = Math.floor(this.spins);
@@ -2409,6 +2551,8 @@ const chipSoap = Array.from(document.querySelectorAll('[data-soap]'));
 const chipSand = Array.from(document.querySelectorAll('[data-sand]'));
 const chipGlow = Array.from(document.querySelectorAll('[data-glow]'));
 const chipGlowW = Array.from(document.querySelectorAll('[data-gloww]'));
+const chipSlime = Array.from(document.querySelectorAll('[data-slime]'));
+const chipSlimeVi = Array.from(document.querySelectorAll('[data-slimevi]'));
 const skinBtn = $('skinBtn'), skinPanel = $('skinPanel'), skinGrid = $('skinGrid'), skinTitle = $('skinTitle');
 let thumbsBuilt = false;
 function skinName(i) { return SPIN_SKINS[i].name[lang === 'en' ? 1 : 0]; }
@@ -2449,10 +2593,9 @@ function buildThumbs() {
     b.className = 'skin';
     b.setAttribute('aria-pressed', String(i === Spin.si));
     b.setAttribute('aria-label', skinName(i));
-    b.appendChild(renderThumb(i));
-    const lb = document.createElement('span');
-    lb.textContent = skinName(i);
-    b.appendChild(lb);
+    const th = renderThumb(i);
+    th.style.animationDuration = (2.2 + (i % 4) * .7) + 's';
+    b.appendChild(th);
     b.addEventListener('click', () => { Snd.init(); Spin.setSkin(i); syncSkinPanel(); closeSkins(); });
     skinGrid.appendChild(b);
   });
@@ -2464,15 +2607,17 @@ function syncSkinPanel() {
   if (!thumbsBuilt) return;
   Array.from(skinGrid.children).forEach((b, i) => {
     b.setAttribute('aria-pressed', String(i === Spin.si));
-    const lb = b.querySelector('span');
-    if (lb) lb.textContent = skinName(i);
     b.setAttribute('aria-label', skinName(i));
   });
 }
 function openSkins() { if (!thumbsBuilt) buildThumbs(); syncSkinPanel(); skinPanel.classList.remove('hidden'); }
 function closeSkins() { skinPanel.classList.add('hidden'); }
 function paintChips() {
-  const g = mode === 'pop' ? 'pop' : mode === 'soap' ? 'soap' : mode === 'sand' ? 'sand' : mode === 'glow' ? 'glow' : null;
+  const g = mode === 'pop' ? 'pop' : mode === 'soap' ? 'soap' : mode === 'sand' ? 'sand' : mode === 'glow' ? 'glow' : mode === 'slime' ? 'slime' : null;
+  if (g === 'slime') {
+    chipSlime.forEach((el, i) => { const n = SLIME_HUES[i].name[lang === 'en' ? 1 : 0]; el.title = n; el.setAttribute('aria-label', n); });
+    chipSlimeVi.forEach((el, i) => { const n = SLIME_VI[i].name[lang === 'en' ? 1 : 0]; el.title = n; el.setAttribute('aria-label', n); });
+  }
   chipsEl.classList.toggle('hidden', !g);
   chipsEl.querySelectorAll('[data-group]').forEach(el => { el.style.display = el.dataset.group === g ? 'flex' : 'none'; });
   if (g === 'soap') chipSoap.forEach((el, i) => { const n = SOAP_SKINS[i].name[lang === 'en' ? 1 : 0]; el.title = n; el.setAttribute('aria-label', n); });
@@ -2501,6 +2646,8 @@ chipSoap.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSoap.f
 chipSand.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSand.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Sand.setSkin(+c.dataset.sand); }));
 chipGlow.forEach(c => c.addEventListener('click', () => { Snd.init(); chipGlow.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Glow.setColor(+c.dataset.glow); }));
 chipGlowW.forEach(c => c.addEventListener('click', () => { Snd.init(); chipGlowW.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Glow.setWidth(+c.dataset.gloww); }));
+chipSlime.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSlime.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Slime.setHue(+c.dataset.slime); }));
+chipSlimeVi.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSlimeVi.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Slime.setVi(+c.dataset.slimevi); }));
 skinBtn.addEventListener('click', () => { Snd.init(); if (skinPanel.classList.contains('hidden')) openSkins(); else closeSkins(); });
 const scoreEl = $('score'), scoreText = $('scoreText'); let lastScore = '';
 function updateScore(force) {
@@ -2604,6 +2751,10 @@ Glow.wi = clamp(store.neonWi | 0, 0, NEON_WIDTHS.length - 1);
 chipGlow.forEach((el, i) => el.setAttribute('aria-pressed', String(i === Glow.ci)));
 chipGlowW.forEach((el, i) => el.setAttribute('aria-pressed', String(i === Glow.wi)));
 Spin.si = clamp(store.spinSi | 0, 0, SPIN_SKINS.length - 1);
+Slime.hi = clamp(store.slimeHi | 0, 0, SLIME_HUES.length - 1);
+Slime.vi = clamp(store.slimeVi | 0, 0, SLIME_VI.length - 1);
+chipSlime.forEach((el, i) => el.setAttribute('aria-pressed', String(i === Slime.hi)));
+chipSlimeVi.forEach((el, i) => el.setAttribute('aria-pressed', String(i === Slime.vi)));
 resize();
 setMode('pop');
 requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
