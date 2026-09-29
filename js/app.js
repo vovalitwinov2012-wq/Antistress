@@ -57,7 +57,7 @@ const STR = {
       sand: 'Веди — песок расходится волнами. Держи палец — подсыпается горка',
       glow: 'Рисуй светом: цвет и ширина — кружками выше',
       ferro: 'Палец — магнит: опилки липнут облаком. Отпусти — разлетятся',
-      spin: 'Мазки по краю крутят, тычок тормозит. Центр держишь — разгон. Скины — кнопкой',
+      spin: 'Мазки по краю крутят, тычок тормозит. Центр держишь — разгон. Скины — в ленте выше',
     },
     reset: { pop: 'Перевернуть всё обратно', wrap: 'Достать новую плёнку', bubbles: 'Выдуть ещё пузырей', slime: 'Новый слайм', soap: 'Новый брусок мыла', ball: 'Выпустить ещё шаров', sand: 'Разровнять песок', glow: 'Стереть рисунок', ferro: 'Убрать магнит', spin: 'Остановить' },
     donePop: 'Всё нажато — переворачиваю обратно',
@@ -77,7 +77,7 @@ const STR = {
       sand: 'Swipe — sand ripples away. Hold to pour a mound',
       glow: 'Draw with light: color and width in the dots above',
       ferro: 'Finger is a magnet: filings cling as a cloud. Release to scatter',
-      spin: 'Strokes spin it up, a tap brakes. Hold center to boost. Skins in the button',
+      spin: 'Strokes spin it up, a tap brakes. Hold center to boost. Skins in the strip above',
     },
     reset: { pop: 'Flip everything back', wrap: 'Get new film', bubbles: 'Blow more bubbles', slime: 'Fresh slime', soap: 'New soap bar', ball: 'Release more balloons', sand: 'Level the sand', glow: 'Clear drawing', ferro: 'Remove magnet', spin: 'Stop' },
     donePop: 'All pressed — flipping back',
@@ -930,13 +930,13 @@ const SLIME_HUES = [
   { name: ['Красный', 'Red'], h: 0 }
 ];
 const SLIME_VI = [
-  { name: ['Мягкий', 'Soft'], mem: 18, damp: .99 },
-  { name: ['Средний', 'Medium'], mem: 26, damp: .985 },
-  { name: ['Твёрдый', 'Firm'], mem: 38, damp: .976 }
+  { name: ['Мягкий', 'Soft'], mem: 6, damp: .955 },
+  { name: ['Средний', 'Medium'], mem: 9, damp: .945 },
+  { name: ['Твёрдый', 'Firm'], mem: 14, damp: .93 }
 ];
 const Slime = {
   nodes: [], N: 28, cx: 0, cy: 0, R: 150, rest: 30, area0: 1,
-  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, craters: [], glint: [], ripples: [],
+  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, glint: [], ripples: [],
   hi: 0, vi: 1, interacted: false,
   folds: 0, stretchPeak: 0, hue: 320, lastSnd: 0, born: -9,
   build(keep) {
@@ -1043,8 +1043,6 @@ const Slime = {
   },
   up(p) {
     if (p && p.tgt === 'grab' && p.t0 != null && T - p.t0 < .25 && Math.hypot(p.x - (p.sx == null ? p.x : p.sx), p.y - (p.sy == null ? p.y : p.sy)) < 14) {
-      this.craters.push({ x: p.x, y: p.y, at: T });
-      if (this.craters.length > 6) this.craters.shift();
       Snd.slimePlop(this.panOf(p.x)); vibrate(10);
     }
     if (this.grab && (!p || p.tgt === 'grab')) this.release();
@@ -1052,7 +1050,7 @@ const Slime = {
   reset() { this.build(false); Snd.slimeGrab(0); },
   setHue(i) {
     this.hi = clamp(i | 0, 0, SLIME_HUES.length - 1);
-    store.slimeHue = this.hi; saveStore();
+    store.slimeHi = this.hi; saveStore();
     this.hue = SLIME_HUES[this.hi].h;
     Snd.twinkle(0);
   },
@@ -1075,14 +1073,13 @@ const Slime = {
       const F = P * len * 160 * .5;
       p.ax += nx * F; p.ay += ny * F; q.ax += nx * F; q.ay += ny * F;
     }
-    const kA = (grabs.length ? 20 : 90) / N;
+    const kA = (grabs.length ? 14 : 26) / N;
     const VI = SLIME_VI[this.vi] || SLIME_VI[1];
-    const damp = reduceMotion ? .94 : VI.damp, h2 = h * h;
+    const damp = VI.damp, h2 = h * h;
     for (const n of nodes) {
       n.ax += (this.cx - c.x) * kA; n.ay += (this.cy - c.y) * kA;
       const hx = this.cx + Math.cos(n.ha) * R, hy = this.cy + Math.sin(n.ha) * R;
       n.ax += (hx - n.x) * VI.mem; n.ay += (hy - n.y) * VI.mem;
-      if (!reduceMotion) { n.ax += Math.sin(T * 1.3 + n.ha * 2) * 40; n.ay += Math.cos(T * 1.1 + n.ha * 3) * 30; }
       let vx = (n.x - n.px) * damp, vy = (n.y - n.py) * damp;
       const sp = Math.hypot(vx, vy);
       if (sp > 30) { vx *= 30 / sp; vy *= 30 / sp; }
@@ -1148,7 +1145,6 @@ const Slime = {
     let peak = 0;
     for (const n of this.nodes) peak = Math.max(peak, Math.hypot(n.x - c.x, n.y - c.y) / this.R);
     if (this.grab) this.stretchPeak = Math.max(this.stretchPeak, peak);
-    if (this.craters.length && T - this.craters[0].at > 1) this.craters.shift();
   },
   tracePath() {
     const n = this.nodes;
@@ -1173,16 +1169,6 @@ const Slime = {
     ctx.fillStyle = halo;
     ctx.beginPath(); ctx.arc(c.x, c.y, R * 1.9, 0, TAU); ctx.fill();
     ctx.restore();
-    for (const rp of this.ripples) {
-      const age = T - rp.at;
-      if (age > .9) continue;
-      const k = age / .9;
-      ctx.globalAlpha = (1 - k) * .35; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(rp.x, rp.y, R * (.25 + .85 * k), 0, TAU); ctx.stroke();
-      ctx.globalAlpha = (1 - k) * .5; ctx.fillStyle = '#fff';
-      ctx.beginPath(); ctx.arc(rp.x, rp.y, 5 * (1 - k) + 1, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 1;
-    }
     ctx.save();
     ctx.fillStyle = 'rgba(20,0,60,.35)';
     ctx.beginPath(); ctx.ellipse(c.x, Math.min(H - 90, c.y + R * 1.02), R * 1.02, R * .2, 0, 0, TAU); ctx.fill();
@@ -1201,16 +1187,6 @@ const Slime = {
       ctx.quadraticCurveTo((bx + grabPt.x) / 2, (by + grabPt.y) / 2, bx - px * w0, by - py * w0);
       ctx.closePath(); ctx.fill();
     }
-    for (const cr of this.craters) {
-      const age = T - cr.at;
-      if (age > .7) continue;
-      const k = 1 - age / .7, rr2 = R * .16 * (.5 + .5 * k);
-      ctx.globalAlpha = .35 * k; ctx.fillStyle = 'rgba(40,0,70,1)';
-      ctx.beginPath(); ctx.ellipse(cr.x, cr.y, rr2, rr2 * .7, 0, 0, TAU); ctx.fill();
-      ctx.globalAlpha = .7 * k; ctx.strokeStyle = 'rgba(255,255,255,1)'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(cr.x, cr.y, rr2 * 1.35, rr2 * .95, 0, 0, TAU); ctx.stroke();
-      ctx.globalAlpha = 1;
-    }
     ctx.translate(c.x, c.y); ctx.scale(s0, s0); ctx.translate(-c.x, -c.y);
     ctx.beginPath(); this.tracePath();
     const g = ctx.createLinearGradient(0, c.y - R, 0, c.y + R);
@@ -1226,6 +1202,22 @@ const Slime = {
     sh = ctx.createRadialGradient(c.x - R * .3, c.y - R * .35, R * .05, c.x - R * .3, c.y - R * .35, R * .95);
     sh.addColorStop(0, 'rgba(255,255,255,.5)'); sh.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = sh; ctx.fillRect(c.x - R * 1.6, c.y - R * 1.6, R * 3.2, R * 3.2);
+    for (const rp of this.ripples) {
+      const age = T - rp.at;
+      if (age > .8) continue;
+      const k = age / .8;
+      ctx.globalAlpha = (1 - k) * .5; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(rp.x, rp.y, R * (.08 + .22 * k), 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+    if (grabPt) {
+      const dg = ctx.createRadialGradient(grabPt.x, grabPt.y, 1, grabPt.x, grabPt.y, R * .3);
+      dg.addColorStop(0, 'rgba(50,0,80,.4)'); dg.addColorStop(1, 'rgba(50,0,80,0)');
+      ctx.fillStyle = dg; ctx.fillRect(c.x - R * 1.6, c.y - R * 1.6, R * 3.2, R * 3.2);
+      ctx.globalAlpha = .65; ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(grabPt.x, grabPt.y, R * .1, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
     for (const bl of this.glint) {
       const aa = bl.a + T * bl.sp * .12;
       const rrf = bl.f * R * (1 + this.stretchPeak * .22);
@@ -1488,7 +1480,8 @@ const SoapCut = {
   setSkin(i) {
     this.ci = clamp(i | 0, 0, SOAP_SKINS.length - 1);
     store.soapCi = this.ci; saveStore();
-    this.build(false); Snd.rustle();
+    for (const pc of this.pieces) pc.ci = this.ci;
+    Snd.rustle(); vibrate(6);
   },
   update(dt) {
     for (let i = this.pieces.length - 1; i >= 0; i--) {
@@ -2126,20 +2119,21 @@ const Glow = {
 
 /* ---------- 9. FERRO — металлические опилки: облако, шипы, разлёт ---------- */
 const Ferro = {
-  pts: [], N: 350, pulses: 0, shards: null, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
+  pts: [], N: 1000, pulses: 0, shards: null, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
   build(keep) {
     const old = keep ? this.pulses : 0;
     if (!this.shards) {
-      const mk = fn => { const S = 2, c = mkCanvas(24 * S, 24 * S), g = c.getContext('2d'); g.scale(S, S); g.translate(12, 12); fn(g); return c; };
+      const mk = fn => { const S = 3, c = mkCanvas(8 * S, 8 * S), g = c.getContext('2d'); g.scale(S, S); g.translate(4, 4); fn(g); return c; };
       this.shards = [
-        mk(g => { const gr = g.createLinearGradient(-7, 0, 7, 0); gr.addColorStop(0, '#0a0c14'); gr.addColorStop(.5, '#454d6e'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 7, 2.6, 0, 0, TAU); g.fill(); g.fillStyle = 'rgba(210,218,240,.5)'; g.fillRect(-4, -1.4, 8, 1); }),
-        mk(g => { const gr = g.createLinearGradient(0, -9, 0, 9); gr.addColorStop(0, '#454d6e'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, -9); g.lineTo(2.4, 0); g.lineTo(0, 9); g.lineTo(-2.4, 0); g.closePath(); g.fill(); }),
-        mk(g => { const gr = g.createRadialGradient(-2, -2, 0, 0, 0, 7); gr.addColorStop(0, '#454d6e'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.arc(0, 0, 5.5, 0, TAU); g.fill(); })
+        mk(g => { g.fillStyle = '#101322'; g.beginPath(); g.arc(0, 0, 1.6, 0, TAU); g.fill(); g.fillStyle = 'rgba(220,228,248,.9)'; g.beginPath(); g.arc(-.5, -.5, .6, 0, TAU); g.fill(); }),
+        mk(g => { const gr = g.createLinearGradient(-2.4, 0, 2.4, 0); gr.addColorStop(0, '#0a0c14'); gr.addColorStop(.5, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 2.4, .9, 0, 0, TAU); g.fill(); }),
+        mk(g => { const gr = g.createLinearGradient(0, -2.6, 0, 2.6); gr.addColorStop(0, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, -2.6); g.lineTo(.8, 0); g.lineTo(0, 2.6); g.lineTo(-.8, 0); g.closePath(); g.fill(); }),
+        mk(g => { g.fillStyle = '#1a1e30'; g.fillRect(-1.5, -1.5, 3, 3); g.fillStyle = 'rgba(220,228,248,.85)'; g.fillRect(-1.5, -1.5, 3, 1); })
       ];
     }
     this.pts = [];
     const R = rng(1234);
-    for (let i = 0; i < this.N; i++) this.pts.push({ x: R() * W, y: 70 + R() * Math.max(50, H - 80), vx: rnd(-30, 30), vy: rnd(-30, 30), rot: R() * TAU, vr: rnd(-2, 2), sp: (R() * 3) | 0, s: rnd(.8, 1.5) });
+    for (let i = 0; i < this.N; i++) this.pts.push({ x: R() * W, y: 70 + R() * Math.max(50, H - 80), vx: rnd(-30, 30), vy: rnd(-30, 30), rot: R() * TAU, vr: rnd(-2, 2), sp: (R() * 4) | 0, s: rnd(.6, 1.3) });
     this.pulses = old; this.fvx = 0; this.fvy = 0; this.prevCloud = 0;
   },
   magPos() {
@@ -2202,8 +2196,8 @@ const Ferro = {
           const j = arr[a];
           if (j <= i) continue;
           const o = P[j], dx = o.x - q.x, dy = o.y - q.y, d2 = dx * dx + dy * dy;
-          if (d2 < 1156 && d2 > .01) {
-            const d = Math.sqrt(d2), push = (34 - d) / d * 42 * h;
+          if (d2 < 196 && d2 > .01) {
+            const d = Math.sqrt(d2), push = (14 - d) / d * 42 * h;
             q.vx -= dx * push; q.vy -= dy * push;
             o.vx += dx * push; o.vy += dy * push;
           }
@@ -2233,7 +2227,7 @@ const Ferro = {
     }
     let drawn = 0;
     for (const q of this.pts) {
-      const spr = this.shards[q.sp], s = 22 * q.s;
+      const spr = this.shards[q.sp], s = 9 * q.s;
       ctx.save(); ctx.translate(q.x, q.y); ctx.rotate(q.rot);
       ctx.drawImage(spr, -s / 2, -s / 2, s, s);
       ctx.restore();
@@ -2294,20 +2288,11 @@ const Spin = {
   },
   down(p) {
     const d = Math.hypot(p.x - this.x, p.y - this.y);
-    p.tgt = d < this.R * .22 ? 'boost' : d < this.R * .4 ? 'drag' : 'spin';
+    p.tgt = d < this.R * .3 ? 'boost' : 'spin';
     p._mt = performance.now(); p._fa = null; p.path = 0; p.t0 = T; p._stopped = false;
-    p._lx = p.x; p._ly = p.y;
     if (p.tgt === 'boost') { Snd.tick(1200, .15); vibrate(6); }
   },
   move(p) {
-    if (p.tgt === 'drag') {
-      this.x = lerp(this.x, p.x, .4); this.y = lerp(this.y, p.y, .4);
-      const now = performance.now(), dtm = Math.max(8, now - (p._mt || now)) / 1000;
-      p._mt = now;
-      this.bvx = clamp(lerp(this.bvx, (p.x - p.px) / dtm * .5, .5), -1200, 1200);
-      this.bvy = clamp(lerp(this.bvy, (p.y - p.py) / dtm * .5, .5), -1200, 1200);
-      return;
-    }
     if (p.tgt !== 'spin') return;
     const fa = Math.atan2(p.y - this.y, p.x - this.x);
     if (p._fa == null) p._fa = Math.atan2(p.py - this.y, p.px - this.x);
@@ -2335,8 +2320,7 @@ const Spin = {
   },
   up(p) {
     if (!p) return;
-    if (p.tgt === 'drag') vibrate(6);
-    else if (p.tgt === 'spin' && (p.path || 0) < 16 && T - (p.t0 || 0) < .3) { this.vel = 0; Snd.tick(900, .2); vibrate(8); }
+    if (p.tgt === 'spin' && (p.path || 0) < 16 && T - (p.t0 || 0) < .3) { this.vel = 0; Snd.tick(900, .2); vibrate(8); }
   },
   reset() { this.vel = 0; this.bvx = 0; this.bvy = 0; Snd.rustle(); },
   setSkin(i) {
@@ -2353,18 +2337,6 @@ const Spin = {
       const dir = this.vel < -1 ? -1 : 1;
       this.vel = lerp(this.vel, dir * 30, 1 - Math.exp(-dt * 2));
       if (T - this.lastBoostSnd > .2) { this.lastBoostSnd = T; Snd.tick(1200 + Math.abs(this.vel) * 40, .12); }
-    }
-    let dragging = false;
-    for (const q of pointers.values()) if (q.tgt === 'drag') { dragging = true; break; }
-    if (!dragging) {
-      this.x += this.bvx * dt; this.y += this.bvy * dt;
-      const fr = Math.exp(-dt * 3);
-      this.bvx *= fr; this.bvy *= fr;
-      const m = this.R * 1.05;
-      if (this.x < m) { this.x = m; this.bvx = Math.abs(this.bvx) * .5; }
-      if (this.x > W - m) { this.x = W - m; this.bvx = -Math.abs(this.bvx) * .5; }
-      if (this.y < m) { this.y = m; this.bvy = Math.abs(this.bvy) * .5; }
-      if (this.y > H - m) { this.y = H - m; this.bvy = -Math.abs(this.bvy) * .5; }
     }
     this.ang += this.vel * dt;
     this.vel *= Math.exp(-dt * .55);
@@ -2485,7 +2457,7 @@ const Spin = {
     if (!this.body) this.body = this.renderBody();
     ctx.save();
     ctx.fillStyle = 'rgba(20,0,60,.18)';
-    ctx.beginPath(); ctx.ellipse(this.x + clamp(this.bvx * .02, -14, 14), this.y + R * 1.15, R * 1.1, R * .18, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(this.x, this.y + R * 1.15, R * 1.1, R * .18, 0, 0, TAU); ctx.fill();
     ctx.restore();
     if (Math.abs(this.vel) > 8) {
       const off = clamp(this.vel * .02, -.3, .3);
@@ -2553,65 +2525,76 @@ const chipGlow = Array.from(document.querySelectorAll('[data-glow]'));
 const chipGlowW = Array.from(document.querySelectorAll('[data-gloww]'));
 const chipSlime = Array.from(document.querySelectorAll('[data-slime]'));
 const chipSlimeVi = Array.from(document.querySelectorAll('[data-slimevi]'));
-const skinBtn = $('skinBtn'), skinPanel = $('skinPanel'), skinGrid = $('skinGrid'), skinTitle = $('skinTitle');
+const skinStrip = $('skinStrip');
 let thumbsBuilt = false;
 function skinName(i) { return SPIN_SKINS[i].name[lang === 'en' ? 1 : 0]; }
 function renderThumb(i) {
-  const sk = SPIN_SKINS[i], tn = SPIN_TONES[i], S = 96;
+  const sk = SPIN_SKINS[i], tn = SPIN_TONES[i], S = 104;
   const c = mkCanvas(S, S), g = c.getContext('2d');
   g.translate(S / 2, S / 2);
-  const R = 32;
+  const R = 40;
+  g.fillStyle = 'rgba(255,255,255,.14)';
+  g.beginPath(); g.arc(0, 0, R + 6, 0, TAU); g.fill();
   if (sk.form === 'disc') {
-    const gr = g.createRadialGradient(-6, -6, 2, 0, 0, R);
-    gr.addColorStop(0, rgba(tn.a.hi, 1)); gr.addColorStop(1, rgba(tn.b.lo, 1));
+    const gr = g.createRadialGradient(-8, -8, 2, 0, 0, R);
+    gr.addColorStop(0, rgba(tn.a.hi, 1)); gr.addColorStop(.6, rgba(tn.a.base, 1)); gr.addColorStop(1, rgba(tn.b.lo, 1));
     g.fillStyle = gr; g.beginPath(); g.arc(0, 0, R, 0, TAU); g.fill();
-    g.fillStyle = '#24105a'; g.beginPath(); g.arc(0, 0, 10, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 13, 0, TAU); g.fill();
+    g.fillStyle = '#2a2f4a'; g.beginPath(); g.arc(0, 0, 7, 0, TAU); g.fill();
   } else if (sk.form === 'hex' || sk.form === 'tri') {
     const nv = sk.form === 'hex' ? 6 : 3;
-    g.fillStyle = rgba(tn.a.base, 1); g.beginPath();
-    for (let k = 0; k < nv; k++) { const a = k / nv * TAU - Math.PI / 2 + .4, px = Math.cos(a) * R, py = Math.sin(a) * R; if (k) g.lineTo(px, py); else g.moveTo(px, py); }
+    const gr = g.createLinearGradient(-R, -R, R, R);
+    gr.addColorStop(0, rgba(tn.a.hi, 1)); gr.addColorStop(.5, rgba(tn.a.base, 1)); gr.addColorStop(1, rgba(tn.b.base, 1));
+    g.fillStyle = gr; g.beginPath();
+    for (let k = 0; k < nv; k++) { const a = k / nv * TAU - Math.PI / 2, px = Math.cos(a) * R, py = Math.sin(a) * R; if (k) g.lineTo(px, py); else g.moveTo(px, py); }
     g.closePath(); g.fill();
-    g.fillStyle = '#24105a'; g.beginPath(); g.arc(0, 0, 9, 0, TAU); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 3; g.stroke();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 12, 0, TAU); g.fill();
+    g.fillStyle = '#2a2f4a'; g.beginPath(); g.arc(0, 0, 6.5, 0, TAU); g.fill();
   } else {
     const n = sk.lobes;
     for (let k = 0; k < n; k++) {
-      const a = k / n * TAU + .4, px = Math.cos(a) * R * .68, py = Math.sin(a) * R * .68;
-      g.fillStyle = rgba(tn.a.base, 1);
-      g.beginPath(); g.ellipse(px, py, R * .3, R * .2, a, 0, TAU); g.fill();
+      const a = k / n * TAU - Math.PI / 2, px = Math.cos(a) * R * .62, py = Math.sin(a) * R * .62;
+      const lg = g.createLinearGradient(px - 14, py - 14, px + 14, py + 14);
+      lg.addColorStop(0, rgba(tn.a.hi, 1)); lg.addColorStop(1, rgba(tn.a.base, 1));
+      g.fillStyle = lg;
+      g.beginPath(); g.arc(px, py, 15, 0, TAU); g.fill();
+      g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2; g.stroke();
       g.fillStyle = rgba(tn.b.base, 1);
-      g.beginPath(); g.arc(px, py, R * .13, 0, TAU); g.fill();
+      g.beginPath(); g.arc(px, py, 6.5, 0, TAU); g.fill();
     }
-    g.fillStyle = '#24105a'; g.beginPath(); g.arc(0, 0, 9, 0, TAU); g.fill();
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(0, 0, 13, 0, TAU); g.fill();
+    g.fillStyle = '#2a2f4a'; g.beginPath(); g.arc(0, 0, 7, 0, TAU); g.fill();
   }
-  if (sk.led) sk.led.forEach((col, k) => { const a = k / 3 * TAU; g.fillStyle = col; g.beginPath(); g.arc(Math.cos(a) * R * .5, Math.sin(a) * R * .5, 4, 0, TAU); g.fill(); });
+  if (sk.led) sk.led.forEach((col, k) => { const a = k / 3 * TAU - Math.PI / 2; g.fillStyle = col; g.beginPath(); g.arc(Math.cos(a) * R * .82, Math.sin(a) * R * .82, 5, 0, TAU); g.fill(); });
   return c;
 }
 function buildThumbs() {
-  while (skinGrid.firstChild) skinGrid.removeChild(skinGrid.firstChild);
+  while (skinStrip.firstChild) skinStrip.removeChild(skinStrip.firstChild);
   SPIN_SKINS.forEach((sk, i) => {
     const b = document.createElement('button');
     b.className = 'skin';
     b.setAttribute('aria-pressed', String(i === Spin.si));
     b.setAttribute('aria-label', skinName(i));
-    const th = renderThumb(i);
-    th.style.animationDuration = (2.2 + (i % 4) * .7) + 's';
-    b.appendChild(th);
-    b.addEventListener('click', () => { Snd.init(); Spin.setSkin(i); syncSkinPanel(); closeSkins(); });
-    skinGrid.appendChild(b);
+    b.appendChild(renderThumb(i));
+    const nm = document.createElement('span');
+    nm.textContent = skinName(i);
+    b.appendChild(nm);
+    b.addEventListener('click', () => { try { Snd.init(); } catch (e) { /* ignore */ } Spin.setSkin(i); syncSkinPanel(); vibrate(8); });
+    skinStrip.appendChild(b);
   });
   thumbsBuilt = true;
 }
 function syncSkinPanel() {
-  skinTitle.textContent = lang === 'en' ? 'Pick a spinner' : 'Выбери спиннер';
-  skinBtn.textContent = lang === 'en' ? 'Skins' : 'Скины';
   if (!thumbsBuilt) return;
-  Array.from(skinGrid.children).forEach((b, i) => {
+  Array.from(skinStrip.children).forEach((b, i) => {
     b.setAttribute('aria-pressed', String(i === Spin.si));
     b.setAttribute('aria-label', skinName(i));
+    const nm = b.querySelector('span');
+    if (nm) nm.textContent = skinName(i);
   });
 }
-function openSkins() { if (!thumbsBuilt) buildThumbs(); syncSkinPanel(); skinPanel.classList.remove('hidden'); }
-function closeSkins() { skinPanel.classList.add('hidden'); }
 function paintChips() {
   const g = mode === 'pop' ? 'pop' : mode === 'soap' ? 'soap' : mode === 'sand' ? 'sand' : mode === 'glow' ? 'glow' : mode === 'slime' ? 'slime' : null;
   if (g === 'slime') {
@@ -2632,7 +2615,8 @@ function setMode(m) {
   mode = m; modeT = 0; pointers.clear(); fx.length = 0;
   tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.mode === m)));
   paintChips();
-  closeSkins(); skinBtn.classList.toggle('hidden', m !== 'spin');
+  skinStrip.classList.toggle('hidden', m !== 'spin');
+  if (m === 'spin') { if (!thumbsBuilt) buildThumbs(); syncSkinPanel(); }
   btnReset.setAttribute('aria-label', resetFor(m)); btnReset.title = resetFor(m) + ' (R)';
   Snd.pad(m === 'bubbles');
   showHint();
@@ -2642,13 +2626,18 @@ function setMode(m) {
 }
 tabs.forEach(t => t.addEventListener('click', () => { Snd.init(); setMode(t.dataset.mode); }));
 chipPop.forEach(c => c.addEventListener('click', () => { Snd.init(); shape = c.dataset.shape; chipPop.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Pop.build(false); }));
-chipSoap.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSoap.forEach(x => x.setAttribute('aria-pressed', String(x === c))); SoapCut.setSkin(+c.dataset.soap); }));
-chipSand.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSand.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Sand.setSkin(+c.dataset.sand); }));
-chipGlow.forEach(c => c.addEventListener('click', () => { Snd.init(); chipGlow.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Glow.setColor(+c.dataset.glow); }));
-chipGlowW.forEach(c => c.addEventListener('click', () => { Snd.init(); chipGlowW.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Glow.setWidth(+c.dataset.gloww); }));
-chipSlime.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSlime.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Slime.setHue(+c.dataset.slime); }));
-chipSlimeVi.forEach(c => c.addEventListener('click', () => { Snd.init(); chipSlimeVi.forEach(x => x.setAttribute('aria-pressed', String(x === c))); Slime.setVi(+c.dataset.slimevi); }));
-skinBtn.addEventListener('click', () => { Snd.init(); if (skinPanel.classList.contains('hidden')) openSkins(); else closeSkins(); });
+function pickDot(list, el, fn) {
+  list.forEach(x => x.setAttribute('aria-pressed', String(x === el)));
+  try { Snd.init(); } catch (e) { /* ignore */ }
+  try { fn(); } catch (e) { /* ignore */ }
+  vibrate(6);
+}
+chipSoap.forEach(c => c.addEventListener('click', () => pickDot(chipSoap, c, () => SoapCut.setSkin(+c.dataset.soap))));
+chipSand.forEach(c => c.addEventListener('click', () => pickDot(chipSand, c, () => Sand.setSkin(+c.dataset.sand))));
+chipGlow.forEach(c => c.addEventListener('click', () => pickDot(chipGlow, c, () => Glow.setColor(+c.dataset.glow))));
+chipGlowW.forEach(c => c.addEventListener('click', () => pickDot(chipGlowW, c, () => Glow.setWidth(+c.dataset.gloww))));
+chipSlime.forEach(c => c.addEventListener('click', () => pickDot(chipSlime, c, () => Slime.setHue(+c.dataset.slime))));
+chipSlimeVi.forEach(c => c.addEventListener('click', () => pickDot(chipSlimeVi, c, () => Slime.setVi(+c.dataset.slimevi))));
 const scoreEl = $('score'), scoreText = $('scoreText'); let lastScore = '';
 function updateScore(force) {
   let s = '';
