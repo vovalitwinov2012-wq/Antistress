@@ -40,10 +40,23 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .chip:active{transform:scale(.94)}
 .chip[aria-pressed=true]{background:rgba(255,255,255,.95);color:var(--ink)}
 #chips [data-group]{display:flex;gap:8px;flex-shrink:0;align-items:center}
+#skinBtn{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom) + var(--tg-sab));pointer-events:auto;transition:opacity .3s,transform .3s}
+#skinBtn.hidden{opacity:0;pointer-events:none;transform:translate(-50%,10px)}
+#skinPanel{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;pointer-events:none;padding:0 14px calc(150px + env(safe-area-inset-bottom) + var(--tg-sab));transition:opacity .3s}
+#skinPanel.hidden{opacity:0}
+.sheet-card{pointer-events:auto;border-radius:24px;padding:14px 14px 16px;max-width:430px;width:100%;transform:translateY(0);transition:transform .32s cubic-bezier(.2,1.4,.4,1),opacity .3s}
+#skinPanel.hidden .sheet-card{transform:translateY(46px)}
+.sheet-title{font-weight:800;text-align:center;margin-bottom:10px;text-shadow:0 1px 8px rgba(30,0,80,.35)}
+.sheet-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;max-height:46vh;overflow-y:auto}
+.skin{appearance:none;border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);border-radius:18px;padding:6px;cursor:pointer;transition:transform .15s,border-color .2s,background .2s;color:#fff;font:inherit}
+.skin:active{transform:scale(.93)}
+.skin[aria-pressed=true]{border-color:#fff;background:rgba(255,255,255,.28)}
+.skin canvas{width:100%;height:auto;display:block}
+.skin span{display:block;text-align:center;font-size:11px;font-weight:800;margin-top:2px;text-shadow:0 1px 6px rgba(30,0,80,.5)}
 .chip.mini{min-width:40px;height:40px;padding:0 12px;border-radius:999px;font-weight:800}
 .chip.mini[aria-pressed=true]{background:rgba(255,255,255,.95);color:var(--ink)}
-.chip.dot{width:40px;height:40px;padding:0;border-radius:50%}
-.chip.dot[aria-pressed=true]{box-shadow:0 0 0 3px #fff,0 4px 14px rgba(20,0,70,.35)}
+.chip.dot{width:40px;height:40px;padding:0;border-radius:50%;border:1.5px solid rgba(255,255,255,.65);box-shadow:none}
+.chip.dot[aria-pressed=true]{box-shadow:0 0 0 3px #fff}
 .hint{position:absolute;left:0;right:0;bottom:calc(150px + env(safe-area-inset-bottom) + var(--tg-sab));text-align:center;font-weight:800;font-size:15px;padding:0 24px;
   text-shadow:0 2px 14px rgba(30,0,80,.6);opacity:0;transition:opacity .6s;pointer-events:none}
 .hint.show{opacity:.96}

@@ -68,21 +68,15 @@
       <button class="chip mini glass" data-gloww="1" aria-pressed="true" title="Средне">M</button>
       <button class="chip mini glass" data-gloww="2" aria-pressed="false" title="Толсто">L</button>
     </span>
-    <span data-group="spin">
-      <button class="chip dot glass" data-spin="0" aria-pressed="true" style="background:conic-gradient(#ff5fa8,#3aa8ff,#34d986,#ffd43b,#ff5fa8)" title="Классика"></button>
-      <button class="chip dot glass" data-spin="1" aria-pressed="false" style="background:#22263a" title="Стелс"></button>
-      <button class="chip dot glass" data-spin="2" aria-pressed="false" style="background:linear-gradient(135deg,#ff4d2e,#ffd43b)" title="Огонь"></button>
-      <button class="chip dot glass" data-spin="3" aria-pressed="false" style="background:linear-gradient(135deg,#bfe6ff,#3aa8ff)" title="Лёд"></button>
-      <button class="chip dot glass" data-spin="4" aria-pressed="false" style="background:linear-gradient(135deg,#39ff88,#00e5ff)" title="Неон"></button>
-      <button class="chip dot glass" data-spin="5" aria-pressed="false" style="background:linear-gradient(135deg,#ffe08a,#c88a1e)" title="Золото"></button>
-      <button class="chip dot glass" data-spin="6" aria-pressed="false" style="background:linear-gradient(135deg,#a15cff,#5a2bd6)" title="Фиолет"></button>
-      <button class="chip dot glass" data-spin="7" aria-pressed="false" style="background:linear-gradient(135deg,#ff7ab8,#ff4d6d)" title="Роза"></button>
-      <button class="chip dot glass" data-spin="8" aria-pressed="false" style="background:linear-gradient(135deg,#4a4f66,#14161f)" title="Карбон"></button>
-      <button class="chip dot glass" data-spin="9" aria-pressed="false" style="background:linear-gradient(135deg,#2ee6c8,#1668dc)" title="Океан"></button>
-      <button class="chip dot glass" data-spin="10" aria-pressed="false" style="background:linear-gradient(135deg,#ff9236,#ff4d6d)" title="Звезда"></button>
-      <button class="chip dot glass" data-spin="11" aria-pressed="false" style="background:linear-gradient(135deg,#ffffff,#8a93b2)" title="Моно"></button>
-    </span>
   </nav>
+
+  <button class="chip glass hidden" id="skinBtn">Скины</button>
+  <div class="sheet hidden" id="skinPanel" role="dialog" aria-label="Скины">
+    <div class="sheet-card glass">
+      <div class="sheet-title" id="skinTitle">Выбери спиннер</div>
+      <div class="sheet-grid" id="skinGrid"></div>
+    </div>
+  </div>
 
   <nav class="dock glass" id="dock" role="tablist" aria-label="Игрушки">
     <button class="tab" role="tab" data-mode="pop" aria-selected="true">
