@@ -21,7 +21,15 @@ const TOYS = ['#ff4d6d', '#ff9236', '#ffd43b', '#34d986', '#3aa8ff', '#a15cff'].
 function mkCanvas(w, h) { const c = document.createElement('canvas'); c.width = Math.max(2, Math.ceil(w)); c.height = Math.max(2, Math.ceil(h)); return c; }
 function rr(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function rng(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
-function vibrate(ms) { try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignore */ } }
+function vibrate(ms) {
+  try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* ignore */ }
+  try {
+    const t = window.Telegram && window.Telegram.WebApp;
+    if (t && t.HapticFeedback && typeof t.HapticFeedback.impactOccurred === 'function') {
+      t.HapticFeedback.impactOccurred(ms >= 25 ? 'heavy' : ms >= 12 ? 'medium' : 'light');
+    }
+  } catch (e) { /* ignore */ }
+}
 
 /* ---------- persistent settings ---------- */
 const store = { theme: 'sunset', lang: 'ru', muted: false };
@@ -100,7 +108,12 @@ const Snd = (() => {
       for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
       if (padWant) pad(true);
     }
-    if (ac.state === 'suspended') ac.resume();
+    if (ac.state === 'suspended') {
+      let pr = null;
+      try { pr = ac.resume(); } catch (e) { /* ignore */ }
+      if (pr && typeof pr.catch === 'function') pr.catch(() => {});
+      setTimeout(() => { try { if (ac && ac.state === 'suspended') ac.resume(); } catch (e) { /* ignore */ } }, 300);
+    }
   }
   function route(node, wet, pan) {
     let out = node;
@@ -276,6 +289,38 @@ let W = window.innerWidth, H = window.innerHeight, DPR = 1, vig = null, T = 0;
 let mode = 'pop', shape = 'grid', modeT = 0;
 const fx = [];
 const pointers = new Map();
+
+/* ---------- Telegram Mini App (вне Telegram — no-op) ---------- */
+const TG = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+function tgSafeArea() {
+  if (!TG) return;
+  try {
+    const s = TG.contentSafeAreaInset || TG.safeAreaInset || null;
+    const root = document.documentElement.style;
+    if (s) {
+      if (s.top != null) root.setProperty('--tg-sat', s.top + 'px');
+      if (s.bottom != null) root.setProperty('--tg-sab', s.bottom + 'px');
+    }
+  } catch (e) { /* ignore */ }
+}
+function initTG() {
+  if (!TG) return;
+  try { TG.ready(); } catch (e) { /* ignore */ }
+  try { TG.expand(); } catch (e) { /* ignore */ }
+  try { document.documentElement.classList.add('tg'); } catch (e) { /* ignore */ }
+  try { if (typeof TG.setHeaderColor === 'function') TG.setHeaderColor('#2a1470'); } catch (e) { /* ignore */ }
+  try { if (typeof TG.setBackgroundColor === 'function') TG.setBackgroundColor('#2a1470'); } catch (e) { /* ignore */ }
+  try { if (typeof TG.setBottomBarColor === 'function') TG.setBottomBarColor('#2a1470'); } catch (e) { /* ignore */ }
+  try { if (typeof TG.disableVerticalSwipes === 'function') TG.disableVerticalSwipes(); } catch (e) { /* ignore */ }
+  tgSafeArea();
+  try {
+    if (typeof TG.onEvent === 'function') {
+      TG.onEvent('viewportChanged', () => { try { clearTimeout(rzTimer); rzTimer = setTimeout(resize, 140); } catch (e) { resize(); } tgSafeArea(); });
+      TG.onEvent('safeAreaChanged', tgSafeArea);
+      TG.onEvent('contentSafeAreaChanged', tgSafeArea);
+    }
+  } catch (e) { /* ignore */ }
+}
 
 const THEMES = {
   sunset: { bg: ['#2a1470', '#7a2fc0', '#ff5fa8'], blobs: ['#ff5fa8', '#3aa8ff', '#ffd43b', '#34d986', '#a15cff', '#ff9236'] },
@@ -1781,10 +1826,15 @@ window.addEventListener('keydown', e => {
   else if (k === 'l' || k === 'д') toggleLang();
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) Snd.init(); });
+document.addEventListener('touchend', () => { Snd.init(); }, { passive: true });
+window.addEventListener('focus', () => { Snd.init(); });
+window.addEventListener('pageshow', () => { Snd.init(); });
 
 /* ---------- resize + main loop (120Hz-safe, FullHD floor) ---------- */
 function resize() {
-  W = window.innerWidth; H = window.innerHeight;
+  W = window.innerWidth;
+  H = (TG && (TG.viewportStableHeight || TG.viewportHeight)) || window.innerHeight;
+  try { document.documentElement.style.setProperty('--app-h', H + 'px'); } catch (e) { /* ignore */ }
   let d = clamp(window.devicePixelRatio || 1, 1, 3);
   d = Math.max(d, Math.min(2.5, 1920 / W));
   while (W * H * d * d > 5.8e6 && d > 1) d = Math.max(1, d - .25);
@@ -1825,6 +1875,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 paintSound(); paintLang();
+initTG();
 resize();
 setMode('pop');
 requestAnimationFrame(t => { last = t; requestAnimationFrame(frame); });
