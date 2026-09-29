@@ -45,7 +45,7 @@ let themeName = (store.theme === 'ocean' || store.theme === 'neon') ? store.them
 /* ---------- i18n ---------- */
 const STR = {
   ru: {
-    dock: { pop: 'Поп-ит', wrap: 'Пупырка', bubbles: 'Пузыри', slime: 'Слайм', soap: 'Мыло', ball: 'Шарики', sand: 'Песок' },
+    dock: { pop: 'Поп-ит', wrap: 'Пупырка', bubbles: 'Пузыри', slime: 'Слайм', soap: 'Мыло', ball: 'Шарики', sand: 'Песок', glow: 'Неон', ferro: 'Магнит', spin: 'Спиннер' },
     chips: ['Радуга', 'Сердце', 'Круг'],
     hints: {
       pop: 'Нажимай на пупырышки — можно водить пальцем',
@@ -54,15 +54,18 @@ const STR = {
       slime: 'Мни и тяни слайм — он тянется и складывается',
       soap: 'Режь брусок под любым углом. Цвет — кружками выше',
       ball: 'Быстрый тап — залп шаров, держи — надуешь большой',
-      sand: 'Веди — песок расходится волнами. Держи палец — подсыпается горка'
+      sand: 'Веди — песок расходится волнами. Держи палец — подсыпается горка',
+      glow: 'Рисуй пальцем светящиеся линии — они тают',
+      ferro: 'Води пальцем — магнитная жидкость тянется шипами',
+      spin: 'Резко крутани спиннер пальцем — слушай гул'
     },
-    reset: { pop: 'Перевернуть всё обратно', wrap: 'Достать новую плёнку', bubbles: 'Выдуть ещё пузырей', slime: 'Новый слайм', soap: 'Новый брусок мыла', ball: 'Выпустить ещё шаров', sand: 'Разровнять песок' },
+    reset: { pop: 'Перевернуть всё обратно', wrap: 'Достать новую плёнку', bubbles: 'Выдуть ещё пузырей', slime: 'Новый слайм', soap: 'Новый брусок мыла', ball: 'Выпустить ещё шаров', sand: 'Разровнять песок', glow: 'Стереть рисунок', ferro: 'Убрать магнит', spin: 'Остановить' },
     donePop: 'Всё нажато — переворачиваю обратно',
     doneWrap: 'Плёнка закончилась — достаю новую',
     themeName: { sunset: 'Закат', ocean: 'Океан', neon: 'Неон' }
   },
   en: {
-    dock: { pop: 'Pop-it', wrap: 'Wrap', bubbles: 'Bubbles', slime: 'Slime', soap: 'Soap', ball: 'Balloons', sand: 'Sand' },
+    dock: { pop: 'Pop-it', wrap: 'Wrap', bubbles: 'Bubbles', slime: 'Slime', soap: 'Soap', ball: 'Balloons', sand: 'Sand', glow: 'Neon', ferro: 'Magnet', spin: 'Spinner' },
     chips: ['Rainbow', 'Heart', 'Circle'],
     hints: {
       pop: 'Press the bubbles — you can slide your finger',
@@ -72,8 +75,11 @@ const STR = {
       soap: 'Cut at any angle. Change color with the dots above',
       ball: 'Quick tap bursts balloons, hold inflates a big one',
       sand: 'Swipe — sand ripples away. Hold to pour a mound',
+      glow: 'Draw glowing lines — they melt away',
+      ferro: 'Move your finger — magnetic fluid grows spikes',
+      spin: 'Flick the spinner hard — hear it hum'
     },
-    reset: { pop: 'Flip everything back', wrap: 'Get new film', bubbles: 'Blow more bubbles', slime: 'Fresh slime', soap: 'New soap bar', ball: 'Release more balloons', sand: 'Level the sand' },
+    reset: { pop: 'Flip everything back', wrap: 'Get new film', bubbles: 'Blow more bubbles', slime: 'Fresh slime', soap: 'New soap bar', ball: 'Release more balloons', sand: 'Level the sand', glow: 'Clear drawing', ferro: 'Remove magnet', spin: 'Stop' },
     donePop: 'All pressed — flipping back',
     doneWrap: 'Film is done — getting a new one',
     themeName: { sunset: 'Sunset', ocean: 'Ocean', neon: 'Neon' }
@@ -203,9 +209,9 @@ const Snd = (() => {
     osc({ f1: 210, f2: 95, dur: .13, peak: .4, att: .004, pan, wet: .25 });
     hit({ fc: 700, fc2: 300, q: 1.2, dur: .09, peak: .2, pan, wet: .2 });
   }
-  function slimeStretch(pan) {
+  function slimeStretch(pan, vol) {
     if (!can()) return; use(90); pan = pan || 0;
-    hit({ fc: rnd(900, 1600), fc2: 2400, q: 2.2, dur: .05, peak: .1, pan, wet: .2 });
+    hit({ fc: rnd(900, 1600), fc2: 2400, q: 2.2, dur: .05, peak: .1 * (vol == null ? 1 : clamp(vol, .3, 2)), pan, wet: .2 });
   }
   function slimePop(pan) {
     if (!can()) return; use(200); pan = pan || 0;
@@ -253,6 +259,22 @@ const Snd = (() => {
     osc({ f1: 1800, f2: 900, dur: .03, peak: .12, att: .001, pan, wet: .15 });
     hit({ fc: 3400, q: 3, dur: .01, peak: .2, t0: rnd(.03, .07), pan, wet: .08 });
   }
+  function tick(freq, peak) {
+    if (!can()) return; use(60);
+    hit({ fc: freq || 2400, q: 4, dur: .012, peak: peak == null ? .18 : peak, wet: .08 });
+  }
+  function magPulse(pan) {
+    if (!can()) return; use(140); pan = pan || 0;
+    const p = rnd(.9, 1.1);
+    osc({ f1: 95 * p, f2: 48 * p, dur: .16, peak: .5, att: .004, pan, wet: .3 });
+    osc({ type: 'triangle', f1: 1400 * p, f2: 2400 * p, dur: .05, peak: .06, att: .002, pan, wet: .3 });
+    hit({ fc: 700, fc2: 300, q: 1.2, dur: .1, peak: .2, pan, wet: .25 });
+  }
+  function twinkle(pan) {
+    if (!can()) return; use(80); pan = pan || 0;
+    const f = rnd(2800, 5200);
+    osc({ f1: f, f2: f * .8, dur: .04, peak: .05, att: .002, pan, wet: .4 });
+  }
   function chime() {
     if (!ac || muted) return;
     [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => osc({ f1: f, dur: .9, peak: .16, att: .006, t0: i * .09, wet: .5 }));
@@ -280,7 +302,7 @@ const Snd = (() => {
     padG.gain.setTargetAtTime(on ? 1 : 0, ac.currentTime, on ? 1.4 : .5);
   }
   function setMuted(m) { muted = m; store.muted = m; saveStore(); if (master) master.gain.setTargetAtTime(m ? 0 : .9, ac.currentTime, .05); }
-  return { init, push, back, wrapPop, inflate, rustle, soapPop, blow, slimeGrab, slimeStretch, slimePop, slimePlop, soapCut, curlSnap, balloonSqueak, balloonPop, sandStep, chime, pad, setMuted, get muted() { return muted; } };
+  return { init, push, back, wrapPop, inflate, rustle, soapPop, blow, slimeGrab, slimeStretch, slimePop, slimePlop, soapCut, curlSnap, balloonSqueak, balloonPop, sandStep, tick, magPulse, twinkle, chime, pad, setMuted, get muted() { return muted; } };
 })();
 
 /* ---------- canvas + themes + background ---------- */
@@ -901,7 +923,7 @@ const Soap = {
 /* ---------- 4. SLIME — soft-body: масса-пружины + давление объёма ---------- */
 const Slime = {
   nodes: [], N: 28, cx: 0, cy: 0, R: 150, rest: 30, area0: 1,
-  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1,
+  grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, craters: [],
   folds: 0, stretchPeak: 0, hue: 320, lastSnd: 0, born: -9,
   build(keep) {
     const oldF = keep ? this.folds : 0;
@@ -917,6 +939,7 @@ const Slime = {
     }
     this.area0 = Math.max(1, this.polyArea());
     this.folds = oldF; this.grab = false; this.stretchPeak = 0;
+    if (!keep || !this.craters) this.craters = [];
     this.born = T;
   },
   polyArea() {
@@ -939,21 +962,21 @@ const Slime = {
     return c;
   },
   panOf(x) { return (x / W - .5) * .9; },
-  dent(x, y, strength) {
+  dent(idx, strength) {
     const c = this.centroid();
     for (let k = -4; k <= 4; k++) {
-      const n = this.nodes[(this.grabIdx + k + this.N * 2) % this.N];
+      const n = this.nodes[(idx + k + this.N * 2) % this.N];
       const w = Math.cos(k / 4 * Math.PI / 2);
       const dx = n.x - c.x, dy = n.y - c.y, d = Math.hypot(dx, dy) + 1;
       n.px -= dx / d * strength * w; n.py -= dy / d * strength * w;
     }
-    void x; void y;
   },
   down(p) {
     const hit = this.nearest(p.x, p.y);
     if (hit.d < this.R * 1.35 || this.inside(p.x, p.y)) {
-      this.grab = true; this.grabIdx = hit.i; p.tgt = 'grab';
-      this.dent(p.x, p.y, 9);
+      this.grab = true; this.grabIdx = hit.i; p.tgt = 'grab'; p.grabIdx = hit.i;
+      p.t0 = T; p.sx = p.x; p.sy = p.y;
+      this.dent(hit.i, 9);
       Snd.slimeGrab(this.panOf(p.x)); vibrate(8);
     } else {
       for (let k = -3; k <= 3; k++) {
@@ -967,7 +990,7 @@ const Slime = {
   move(p) {
     if (p.tgt !== 'grab') return;
     const dx = p.x - p.px, dy = p.y - p.py, d = Math.hypot(dx, dy);
-    if (T - this.lastSnd > .09 && d > 4) { this.lastSnd = T; Snd.slimeStretch(this.panOf(p.x)); }
+    if (T - this.lastSnd > .09 && d > 4) { this.lastSnd = T; Snd.slimeStretch(this.panOf(p.x), clamp(d / 22, .4, 1.8)); }
   },
   release() {
     if (this.stretchPeak > 1.45) {
@@ -979,12 +1002,25 @@ const Slime = {
         const tx = -dy / d, ty = dx / d, sw = rnd(4, 10);
         n.px -= tx * sw; n.py -= ty * sw;
       }
+      if (this.stretchPeak > 1.8 && fx.length < 380) {
+        for (let i = 0; i < 5; i++) {
+          const a = rnd(0, TAU), v = rnd(120, 260);
+          fx.push({ t: 'drop', x: c.x + rnd(-20, 20), y: c.y + rnd(-20, 20), vx: Math.cos(a) * v, vy: Math.sin(a) * v - 60, g: 500, drag: 1.5, size: rnd(2, 4), css: 'hsla(' + this.hue + ',90%,70%,1)', life: 0, max: rnd(.4, .8) });
+        }
+      }
     }
     this.grab = false; this.stretchPeak = 0;
   },
-  up(p) { if (this.grab && (!p || p.tgt === 'grab')) this.release(); },
+  up(p) {
+    if (p && p.tgt === 'grab' && p.t0 != null && T - p.t0 < .25 && Math.hypot(p.x - (p.sx == null ? p.x : p.sx), p.y - (p.sy == null ? p.y : p.sy)) < 14) {
+      this.craters.push({ x: p.x, y: p.y, at: T });
+      if (this.craters.length > 6) this.craters.shift();
+      Snd.slimePlop(this.panOf(p.x)); vibrate(10);
+    }
+    if (this.grab && (!p || p.tgt === 'grab')) this.release();
+  },
   reset() { this.build(false); Snd.slimeGrab(0); },
-  step(h, gx, gy) {
+  step(h, grabs) {
     const N = this.N, nodes = this.nodes, R = this.R;
     const c = this.centroid();
     const A = this.polyArea(), P = (this.area0 - A) / this.area0;
@@ -998,7 +1034,7 @@ const Slime = {
       const F = P * len * 160 * .5;
       p.ax += nx * F; p.ay += ny * F; q.ax += nx * F; q.ay += ny * F;
     }
-    const kA = (gx != null ? 8 : 30) / N;
+    const kA = (grabs.length ? 8 : 30) / N;
     const damp = reduceMotion ? .94 : .985, h2 = h * h;
     for (const n of nodes) {
       n.ax += (this.cx - c.x) * kA; n.ay += (this.cy - c.y) * kA;
@@ -1008,13 +1044,16 @@ const Slime = {
       n.px = n.x; n.py = n.y;
       n.x += vx + n.ax * h2; n.y += vy + n.ay * h2;
     }
-    if (gx != null) {
-      for (let k = -1; k <= 1; k++) {
-        const n = nodes[(this.grabIdx + k + N * 2) % N], w = k === 0 ? .5 : .3;
-        n.px = lerp(n.px, gx, w * .7); n.py = lerp(n.py, gy, w * .7);
-        n.x = lerp(n.x, gx, w); n.y = lerp(n.y, gy, w);
+    if (grabs.length) {
+      for (const gr of grabs) {
+        for (let k = -1; k <= 1; k++) {
+          const n = nodes[(gr.idx + k + N * 2) % N], w = k === 0 ? .5 : .3;
+          n.px = lerp(n.px, gr.x, w * .7); n.py = lerp(n.py, gr.y, w * .7);
+          n.x = lerp(n.x, gr.x, w); n.y = lerp(n.y, gr.y, w);
+        }
       }
-      const dx = gx - c.x, dy = gy - c.y, d = Math.hypot(dx, dy) + 1e-6;
+      const g0 = grabs[0];
+      const dx = g0.x - c.x, dy = g0.y - c.y, d = Math.hypot(dx, dy) + 1e-6;
       this.grabDirX = dx / d; this.grabDirY = dy / d;
     }
     for (let it = 0; it < 2; it++) {
@@ -1041,15 +1080,16 @@ const Slime = {
     }
   },
   update(dt) {
-    let gx = null, gy = null;
-    if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') { gx = q.x; gy = q.y; break; }
-    if (this.grab && gx == null) { this.release(); }
+    const grabs = [];
+    if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') grabs.push({ x: q.x, y: q.y, idx: q.grabIdx == null ? this.grabIdx : q.grabIdx });
+    if (this.grab && !grabs.length) { this.release(); }
     const sub = 3, h = Math.min(dt, .033) / sub;
-    for (let s = 0; s < sub; s++) this.step(h, gx, gy);
+    for (let s = 0; s < sub; s++) this.step(h, grabs);
     const c = this.centroid();
     let peak = 0;
     for (const n of this.nodes) peak = Math.max(peak, Math.hypot(n.x - c.x, n.y - c.y) / this.R);
     if (this.grab) this.stretchPeak = Math.max(this.stretchPeak, peak);
+    if (this.craters.length && T - this.craters[0].at > 1) this.craters.shift();
   },
   tracePath() {
     const n = this.nodes;
@@ -1084,6 +1124,16 @@ const Slime = {
       ctx.lineTo(grabPt.x - px * w1, grabPt.y - py * w1);
       ctx.quadraticCurveTo((bx + grabPt.x) / 2, (by + grabPt.y) / 2, bx - px * w0, by - py * w0);
       ctx.closePath(); ctx.fill();
+    }
+    for (const cr of this.craters) {
+      const age = T - cr.at;
+      if (age > .7) continue;
+      const k = 1 - age / .7, rr2 = R * .16 * (.5 + .5 * k);
+      ctx.globalAlpha = .35 * k; ctx.fillStyle = 'rgba(40,0,70,1)';
+      ctx.beginPath(); ctx.ellipse(cr.x, cr.y, rr2, rr2 * .7, 0, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .7 * k; ctx.strokeStyle = 'rgba(255,255,255,1)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cr.x, cr.y, rr2 * 1.35, rr2 * .95, 0, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
     }
     ctx.translate(c.x, c.y); ctx.scale(s0, s0); ctx.translate(-c.x, -c.y);
     ctx.beginPath(); this.tracePath();
@@ -1828,7 +1878,266 @@ const Sand = {
   score() { const s = Math.floor(this.moved / 400); return lang === 'en' ? ('Moved sand: ' + s) : ('Пересыпано: ' + s); }
 };
 
-const modes = { pop: Pop, wrap: Wrap, bubbles: Soap, slime: Slime, soap: SoapCut, ball: Ball, sand: Sand };
+/* ---------- 8. NEON — рисование светом ---------- */
+const Glow = {
+  layer: null, lg: null, lw: 0, lh: 0, sc: .5, dot: null, painted: 0, hue: 180, lastTw: 0,
+  build(keep) {
+    const old = keep ? this.painted : 0;
+    this.sc = .5;
+    this.lw = Math.max(2, Math.ceil(W * this.sc)); this.lh = Math.max(2, Math.ceil(H * this.sc));
+    this.layer = mkCanvas(this.lw, this.lh);
+    this.lg = this.layer.getContext('2d');
+    this.lg.fillStyle = '#000'; this.lg.fillRect(0, 0, this.lw, this.lh);
+    const S = 64, c = mkCanvas(S, S), g = c.getContext('2d');
+    const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
+    gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.8)');
+    gr.addColorStop(.6, 'rgba(255,255,255,.18)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = gr; g.fillRect(0, 0, S, S);
+    this.dot = c;
+    this.painted = old;
+    this.hue = rnd(0, 360);
+  },
+  stamp(x, y, dist) {
+    const g = this.lg, h = (this.hue + this.painted * .04) % 360;
+    const s = (12 + clamp(dist * .35, 0, 30)) * this.sc * 2;
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.globalAlpha = .8;
+    g.drawImage(this.dot, x * this.sc - s / 2, y * this.sc - s / 2, s, s);
+    g.globalAlpha = .85;
+    g.fillStyle = 'hsla(' + ((h + 360) % 360) + ',100%,60%,1)';
+    g.beginPath(); g.arc(x * this.sc, y * this.sc, Math.max(1, s * .16), 0, TAU); g.fill();
+    g.restore();
+    this.painted += dist;
+    this.hue += dist * .12;
+  },
+  down(p) {
+    p.tgt = 'draw'; this.hue += 24;
+    this.stamp(p.x, p.y, 4);
+    Snd.twinkle((p.x / W - .5) * .9); vibrate(5);
+    fx.push({ t: 'ring', x: p.x, y: p.y, r0: 4, r1: 30, life: 0, max: .3, css: 'rgba(255,255,255,.9)', a: .6, lw: 2 });
+  },
+  move(p) {
+    if (p.tgt !== 'draw') return;
+    const dx = p.x - p.px, dy = p.y - p.py, d = Math.hypot(dx, dy), n = Math.max(1, Math.ceil(d / 6));
+    for (let i = 1; i <= n; i++) this.stamp(p.px + dx * i / n, p.py + dy * i / n, d / n);
+    if (T - this.lastTw > .3 && d > 20) { this.lastTw = T; Snd.twinkle((p.x / W - .5) * .9); }
+  },
+  up() {},
+  reset() { this.lg.fillStyle = '#000'; this.lg.fillRect(0, 0, this.lw, this.lh); this.painted = 0; Snd.rustle(); },
+  update(dt) {
+    const g = this.lg;
+    g.save();
+    g.globalCompositeOperation = 'source-over';
+    g.globalAlpha = 1 - Math.exp(-dt * (reduceMotion ? 2.5 : .55));
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, this.lw, this.lh);
+    g.restore();
+  },
+  draw() {
+    ctx.save();
+    ctx.globalCompositeOperation = 'screen';
+    ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(this.layer, 0, 0, W, H);
+    ctx.restore();
+  },
+  score() { const m = Math.floor(this.painted / 100); return lang === 'en' ? ('Painted: ' + m + ' m') : ('Нарисовано: ' + m + ' м'); }
+};
+
+/* ---------- 9. FERRO — магнитная жидкость ---------- */
+const Ferro = {
+  blobs: [], spikes: [], N: 26, pulses: 0, cx: 0, cy: 0, R: 200,
+  build(keep) {
+    const old = keep ? this.pulses : 0;
+    this.cx = W / 2; this.cy = H * .55;
+    this.R = clamp(Math.min(W, H) * .3, 130, 280);
+    this.blobs = [];
+    for (let i = 0; i < 7; i++) {
+      const a = i / 7 * TAU + rnd(-.2, .2), d = this.R * rnd(.15, .75);
+      this.blobs.push({ x: this.cx + Math.cos(a) * d, y: this.cy + Math.sin(a) * d * .8, r: this.R * rnd(.16, .26), ph: rnd(0, TAU) });
+    }
+    this.spikes = [];
+    for (let i = 0; i < this.N; i++) this.spikes.push({ a: i / this.N * TAU, h: 0, seed: rnd(0, TAU) });
+    this.pulses = old;
+  },
+  magPos() {
+    for (const q of pointers.values()) if (q.tgt === 'mag') return q;
+    return null;
+  },
+  down(p) {
+    p.tgt = 'mag'; this.pulses++;
+    Snd.magPulse((p.x / W - .5) * .9); vibrate(8);
+    fx.push({ t: 'ring', x: p.x, y: p.y, r0: 8, r1: 44, life: 0, max: .3, css: 'rgba(200,220,255,.9)', a: .5, lw: 2 });
+  },
+  move(p) {
+    if (p.tgt !== 'mag') return;
+    const d = Math.hypot(p.x - p.px, p.y - p.py);
+    if (d > 30 && T - (this.lastTw || 0) > .2) { this.lastTw = T; Snd.magPulse((p.x / W - .5) * .9); }
+  },
+  up() {},
+  reset() { this.build(false); Snd.magPulse(0); },
+  update(dt) {
+    const m = this.magPos(), k = 1 - Math.exp(-dt * 10);
+    for (const s of this.spikes) {
+      const bx = this.cx + Math.cos(s.a) * this.R * 1.02, by = this.cy + Math.sin(s.a) * this.R * .86;
+      let target = 5 + 3 * Math.sin(T * 2 + s.seed);
+      if (m) {
+        const d = Math.hypot(m.x - bx, m.y - by);
+        target += 78 * Math.exp(-d / 170);
+      }
+      s.h += (target - s.h) * (reduceMotion ? 1 : k);
+    }
+    for (const b of this.blobs) b.ph += dt * 1.5;
+  },
+  draw() {
+    const R = this.R;
+    ctx.save();
+    ctx.fillStyle = 'rgba(10,0,25,.35)';
+    ctx.beginPath(); ctx.ellipse(this.cx, this.cy + R * .95, R * 1.15, R * .2, 0, 0, TAU); ctx.fill();
+    for (const b of this.blobs) {
+      const w = 1 + Math.sin(b.ph) * .04, r = b.r * w;
+      const g = ctx.createRadialGradient(b.x - r * .3, b.y - r * .35, r * .1, b.x, b.y, r);
+      g.addColorStop(0, '#3a3f66'); g.addColorStop(.45, '#161a33'); g.addColorStop(.85, '#05060f'); g.addColorStop(1, 'rgba(5,6,15,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, TAU); ctx.fill();
+    }
+    const m = this.magPos();
+    for (const s of this.spikes) {
+      if (s.h < 2) continue;
+      const bx = this.cx + Math.cos(s.a) * R * 1.0, by = this.cy + Math.sin(s.a) * R * .84;
+      let ox = Math.cos(s.a), oy = Math.sin(s.a);
+      if (m) {
+        const dx = m.x - bx, dy = m.y - by, d = Math.hypot(dx, dy) + 1;
+        const pull = Math.exp(-d / 220) * .85;
+        ox = ox * (1 - pull) + dx / d * pull; oy = oy * (1 - pull) + dy / d * pull;
+        const ol = Math.hypot(ox, oy) + 1e-6; ox /= ol; oy /= ol;
+      }
+      const tx = bx + ox * s.h, ty = by + oy * s.h;
+      const px = -oy, py = ox, w = 3 + s.h * .1;
+      const g = ctx.createLinearGradient(bx, by, tx, ty);
+      g.addColorStop(0, '#0a0c1c'); g.addColorStop(1, '#4a5180');
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(bx + px * w, by + py * w);
+      ctx.lineTo(tx, ty);
+      ctx.lineTo(bx - px * w, by - py * w);
+      ctx.closePath(); ctx.fill();
+      if (s.h > 20) {
+        ctx.fillStyle = 'rgba(220,230,255,.85)';
+        ctx.beginPath(); ctx.arc(tx, ty, 2.2, 0, TAU); ctx.fill();
+      }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,.5)';
+    ctx.beginPath(); ctx.ellipse(this.cx - R * .3, this.cy - R * .38, R * .22, R * .1, -.5, 0, TAU); ctx.fill();
+    ctx.restore();
+  },
+  score() { return lang === 'en' ? ('Pulses: ' + this.pulses) : ('Импульсов: ' + this.pulses); }
+};
+
+/* ---------- 10. SPIN — спиннер ---------- */
+const Spin = {
+  x: 0, y: 0, R: 160, ang: 0, vel: 0, maxRPM: 0, spins: 0, prevSec: 0,
+  build(keep) {
+    const oM = keep ? this.maxRPM : 0, oS = keep ? this.spins : 0;
+    this.x = W / 2; this.y = H * .52;
+    this.R = clamp(Math.min(W, H) * .3, 130, 260);
+    if (!keep) this.ang = rnd(0, TAU);
+    this.vel = keep ? this.vel : 0;
+    this.maxRPM = oM; this.spins = oS; this.prevSec = 0;
+  },
+  down(p) { p.tgt = 'spin'; p._mt = performance.now(); },
+  move(p) {
+    if (p.tgt !== 'spin') return;
+    const ax = p.px - this.x, ay = p.py - this.y, bx = p.x - this.x, by = p.y - this.y;
+    const r = Math.hypot(bx, by);
+    if (r < this.R * .3) return;
+    let d = Math.atan2(by, bx) - Math.atan2(ay, ax);
+    while (d > Math.PI) d -= TAU;
+    while (d < -Math.PI) d += TAU;
+    if (Math.abs(d) > 1.2) return;
+    const now = performance.now(), dtm = Math.max(8, now - (p._mt || now)) / 1000;
+    p._mt = now;
+    const before = this.vel;
+    this.vel = clamp(this.vel + d / dtm * .35, -42, 42);
+    if (Math.abs(this.vel - before) > .5) vibrate(4);
+  },
+  up() {},
+  reset() { this.vel = 0; Snd.rustle(); },
+  update(dt) {
+    this.ang += this.vel * dt;
+    this.vel *= Math.exp(-dt * .3);
+    if (Math.abs(this.vel) < .02) this.vel = 0;
+    this.spins += Math.abs(this.vel) * dt / TAU;
+    const rpm = Math.abs(this.vel) * 60 / TAU;
+    if (rpm > this.maxRPM) this.maxRPM = rpm;
+    const sec = Math.floor((((this.ang % TAU) + TAU) % TAU) / (TAU / 3));
+    if (sec !== this.prevSec) {
+      this.prevSec = sec;
+      if (Math.abs(this.vel) > 2) Snd.tick(1800 + Math.abs(this.vel) * 40, clamp(Math.abs(this.vel) / 20, .05, .3));
+    }
+  },
+  arm(g, len, wid, ci) {
+    const t = TOYS[ci % TOYS.length];
+    const gr = g.createLinearGradient(0, -wid / 2, 0, wid / 2);
+    gr.addColorStop(0, rgba(t.hi, 1)); gr.addColorStop(.5, rgba(t.base, 1)); gr.addColorStop(1, rgba(t.lo, 1));
+    g.fillStyle = gr;
+    rr(g, 0, -wid / 2, len, wid, wid / 2); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.35)';
+    rr(g, len * .12, -wid / 2 + 3, len * .5, wid * .22, wid * .11); g.fill();
+  },
+  weight(g, x, y, r, ci) {
+    const t = TOYS[ci % TOYS.length];
+    const gr = g.createRadialGradient(x - r * .3, y - r * .35, r * .1, x, y, r);
+    gr.addColorStop(0, rgba(t.hi, 1)); gr.addColorStop(.55, rgba(t.base, 1)); gr.addColorStop(1, rgba(t.deep, 1));
+    g.fillStyle = gr;
+    g.beginPath(); g.arc(x, y, r, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(20,0,60,.5)';
+    g.beginPath(); g.arc(x, y, r * .32, 0, TAU); g.fill();
+    g.fillStyle = 'rgba(255,255,255,.8)';
+    g.beginPath(); g.arc(x - r * .3, y - r * .35, r * .16, 0, TAU); g.fill();
+  },
+  drawBody(ghost) {
+    const R = this.R, wr = R * .3;
+    ctx.save();
+    ctx.translate(this.x, this.y); ctx.rotate(this.ang);
+    if (ghost) ctx.globalAlpha = .22;
+    for (let i = 0; i < 3; i++) {
+      ctx.save(); ctx.rotate(i * TAU / 3);
+      this.arm(ctx, R * .98, R * .34, i * 2);
+      this.weight(ctx, R * .92, 0, wr, i * 2 + 1);
+      ctx.restore();
+    }
+    const cap = ctx.createRadialGradient(-R * .1, -R * .12, R * .02, 0, 0, R * .34);
+    cap.addColorStop(0, '#ffffff'); cap.addColorStop(.4, '#cfd6ea'); cap.addColorStop(1, '#5a6285');
+    ctx.fillStyle = cap;
+    ctx.beginPath(); ctx.arc(0, 0, R * .3, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#2a2f4a';
+    ctx.beginPath(); ctx.arc(0, 0, R * .11, 0, TAU); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    ctx.beginPath(); ctx.arc(-R * .06, -R * .07, R * .035, 0, TAU); ctx.fill();
+    ctx.restore();
+  },
+  draw() {
+    const R = this.R;
+    ctx.save();
+    ctx.fillStyle = 'rgba(20,0,60,.35)';
+    ctx.beginPath(); ctx.ellipse(this.x, this.y + R * 1.15, R * 1.1, R * .18, 0, 0, TAU); ctx.fill();
+    ctx.restore();
+    if (Math.abs(this.vel) > 8) {
+      const off = clamp(this.vel * .02, -.3, .3), keep = this.ang;
+      this.ang = keep - off; this.drawBody(true);
+      this.ang = keep + off; this.drawBody(true);
+      this.ang = keep;
+    }
+    this.drawBody(false);
+  },
+  score() {
+    const m = Math.round(this.maxRPM), s = Math.floor(this.spins);
+    return lang === 'en' ? ('Top ' + m + ' rpm · ' + s + ' turns') : ('Макс ' + m + ' об/мин · ' + s + ' оборотов');
+  }
+};
+
+const modes = { pop: Pop, wrap: Wrap, bubbles: Soap, slime: Slime, soap: SoapCut, ball: Ball, sand: Sand, glow: Glow, ferro: Ferro, spin: Spin };
 
 /* ---------- UI ---------- */
 const hintEl = $('hint'); let hintTimer = 0;
@@ -1854,7 +2163,7 @@ function paintLang() {
   btnLang.textContent = lang.toUpperCase();
   document.documentElement.lang = lang;
   const tabs = document.querySelectorAll('.tab .lbl');
-  const order = ['pop', 'wrap', 'bubbles', 'slime', 'soap', 'ball', 'sand'];
+  const order = ['pop', 'wrap', 'bubbles', 'slime', 'soap', 'ball', 'sand', 'glow', 'ferro', 'spin'];
   tabs.forEach((el, i) => { el.textContent = STR[lang].dock[order[i]]; });
   const chips = document.querySelectorAll('[data-shape]');
   chips.forEach((el, i) => { el.textContent = STR[lang].chips[i]; });
@@ -1921,8 +2230,8 @@ cv.addEventListener('contextmenu', e => e.preventDefault());
 window.addEventListener('keydown', e => {
   if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const k = e.key.toLowerCase();
-  const order = ['pop', 'wrap', 'bubbles', 'slime', 'soap', 'ball', 'sand'];
-  const idx = ['1', '2', '3', '4', '5', '6', '7'].indexOf(k);
+  const order = ['pop', 'wrap', 'bubbles', 'slime', 'soap', 'ball', 'sand', 'glow', 'ferro', 'spin'];
+  const idx = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'].indexOf(k);
   if (idx >= 0) setMode(order[idx]);
   else if (k === 'r' || k === 'к') { Snd.init(); modes[mode].reset(); }
   else if (k === 'm' || k === 'ь') toggleSound();
@@ -1955,6 +2264,9 @@ function resize() {
   try { SoapCut.build(true); } catch (e) { /* ignore */ }
   try { Ball.build(true); } catch (e) { /* ignore */ }
   try { Sand.build(); } catch (e) { /* ignore */ }
+  try { Glow.build(true); } catch (e) { /* ignore */ }
+  try { Ferro.build(true); } catch (e) { /* ignore */ }
+  try { Spin.build(true); } catch (e) { /* ignore */ }
 }
 let rzTimer = 0;
 window.addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(resize, 140); });
