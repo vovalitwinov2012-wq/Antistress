@@ -47,7 +47,7 @@ button{touch-action:manipulation}
 .skin{appearance:none;border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.1);border-radius:18px;padding:6px;cursor:pointer;transition:transform .15s,border-color .2s,background .2s;color:#fff;font:inherit;flex-shrink:0;width:64px}
 .skin:active{transform:scale(.93)}
 .skin[aria-pressed=true]{border-color:#fff;background:rgba(255,255,255,.3);box-shadow:0 0 0 2px #fff,0 4px 14px rgba(20,0,70,.35)}
-.skin canvas{width:52px;height:52px;display:block}
+.skin canvas{position:static;width:52px;height:52px;display:block}
 .skin span{display:block;text-align:center;font-size:10px;font-weight:800;margin-top:2px;text-shadow:0 1px 6px rgba(30,0,80,.5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chip.mini{min-width:40px;height:40px;padding:0 12px;border-radius:999px;font-weight:800}
 .chip.mini[aria-pressed=true]{background:rgba(255,255,255,.95);color:var(--ink)}

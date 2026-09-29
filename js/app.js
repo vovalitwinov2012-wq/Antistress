@@ -213,13 +213,6 @@ const Snd = (() => {
     if (!can()) return; use(90); pan = pan || 0;
     hit({ fc: rnd(900, 1600), fc2: 2400, q: 2.2, dur: .05, peak: .1 * (vol == null ? 1 : clamp(vol, .3, 2)), pan, wet: .2 });
   }
-  function slimePop(pan) {
-    if (!can()) return; use(200); pan = pan || 0;
-    const p = rnd(.9, 1.25);
-    osc({ f1: 900 * p, f2: 300 * p, dur: .07, peak: .3, att: .001, pan, wet: .3 });
-    hit({ fc: 3200, q: 1.4, dur: .015, peak: .35, pan, wet: .15 });
-    hit({ ftype: 'highpass', fc: 5000, dur: .008, peak: .15, pan, wet: .1 });
-  }
   function soapCut(pan, vol) {
     if (!can()) return; use(260); pan = pan || 0; vol = vol == null ? 1 : clamp(vol, .25, 1.4);
     const k = rnd(.9, 1.15);
@@ -276,7 +269,7 @@ const Snd = (() => {
     osc({ f1: f, f2: f * .8, dur: .04, peak: .05, att: .002, pan, wet: .4 });
   }
   function chime() {
-    if (!ac || muted) return;
+    if (!can()) return; use(900);
     [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => osc({ f1: f, dur: .9, peak: .16, att: .006, t0: i * .09, wet: .5 }));
   }
   function pad(on) {
@@ -302,7 +295,7 @@ const Snd = (() => {
     padG.gain.setTargetAtTime(on ? 1 : 0, ac.currentTime, on ? 1.4 : .5);
   }
   function setMuted(m) { muted = m; store.muted = m; saveStore(); if (master) master.gain.setTargetAtTime(m ? 0 : .9, ac.currentTime, .05); }
-  return { init, push, back, wrapPop, inflate, rustle, soapPop, blow, slimeGrab, slimeStretch, slimePop, slimePlop, soapCut, curlSnap, balloonSqueak, balloonPop, sandStep, tick, magPulse, twinkle, chime, pad, setMuted, get muted() { return muted; } };
+  return { init, push, back, wrapPop, inflate, rustle, soapPop, blow, slimeGrab, slimeStretch, slimePlop, soapCut, curlSnap, balloonSqueak, balloonPop, sandStep, tick, magPulse, twinkle, chime, pad, setMuted, get muted() { return muted; } };
 })();
 
 /* ---------- canvas + themes + background ---------- */
@@ -514,7 +507,7 @@ const Pop = {
       q.pitch = (q.ux - minx) / (bw || 1);
       if (shape === 'heart') q.ci = clamp(Math.floor(((q.ux - minx) / (bw || 1) + (q.uy - miny) / (bh || 1)) / 2 * 6), 0, 5);
     }
-    const unit = Math.min(availW / (bw + 1.7), availH / (bh + 1.7), 150);
+    const unit = Math.max(8, Math.min(availW / (bw + 1.7), availH / (bh + 1.7), 150));
     const cx = W / 2, cy = 78 + availH / 2;
     const same = prev.length === pts.length;
     this.bubbles = pts.map((q, i) => {
@@ -707,7 +700,7 @@ function mkWrapPopped(r, S, seed) {
 const Wrap = {
   bubbles: [], r: 30, s: 60, spr: null, sheet: { x: 0, y: 0, w: 0, h: 0 }, popped: 0, done: false, doneT: 0,
   build(keep) {
-    const prev = keep ? this.bubbles.map(b => b.popped) : [];
+    const prev = keep ? this.bubbles.map(b => ({ x: b.x, y: b.y, popped: b.popped })) : [];
     const ax = 14, ay = 76, aw = W - 28, ah = H - 76 - 106;
     const s = clamp(Math.min(aw, ah) / 10.5, 48, 84), r = s * .44, dy = s * .866, mg = r + 10;
     const cols = Math.max(3, Math.floor((aw - 2 * mg - s / 2) / s) + 1), rows = Math.max(3, Math.floor((ah - 2 * mg) / dy) + 1);
@@ -718,7 +711,17 @@ const Wrap = {
       const idx = list.length;
       list.push({ x: x0 + i * s + (j % 2 ? s / 2 : 0), y: y0 + j * dy, popped: false, popT: 0, refillAt: 0, inflT: -9, v: (idx * 7 + j) % 4 });
     }
-    if (prev.length === list.length) list.forEach((b, i) => { b.popped = !!prev[i]; b.popT = -9; });
+    if (prev.length) {
+      const lim = s * s * 1.2;
+      for (const b of list) {
+        let bi = -1, bd = lim;
+        for (let i = 0; i < prev.length; i++) {
+          const o = prev[i], dx = b.x - o.x, dy = b.y - o.y, d2 = dx * dx + dy * dy;
+          if (d2 < bd) { bd = d2; bi = i; }
+        }
+        if (bi >= 0) { b.popped = !!prev[bi].popped; b.popT = -9; }
+      }
+    }
     this.bubbles = list; this.s = s; this.r = r;
     this.sheet = { x: ax, y: ay, w: aw, h: ah };
     this.popped = list.filter(b => b.popped).length; this.done = false;
@@ -883,7 +886,7 @@ const Soap = {
     }
   },
   up() {},
-  reset() { for (let i = 0; i < 14; i++) this.spawn(rnd(.05, .95) * W, H + 40, rnd(-30, 30), rnd(-140, -60), rnd(20, 60) * this.sc, true); Snd.blow(); },
+  reset() { for (let i = 0; i < 14 && this.list.length < 70; i++) this.spawn(rnd(.05, .95) * W, H + 40, rnd(-30, 30), rnd(-140, -60), rnd(20, 60) * this.sc, true); Snd.blow(); },
   update(dt) {
     this.spawnT -= dt;
     if (this.spawnT <= 0 && this.list.length < 52) { this.spawnT = rnd(.35, .9); const R = rnd(20, 64) * this.sc; this.spawn(rnd(.04, .96) * W, H + R * 1.2, 0, 0, R, false); }
@@ -943,7 +946,6 @@ const Slime = {
     const oldF = keep ? this.folds : 0;
     this.cx = W / 2; this.cy = H * .52;
     this.R = clamp(Math.min(W, H) * .36, 140, 320);
-    this.hue = (this.hue + 40) % 360 || 320;
     this.rest = 2 * Math.PI * this.R / this.N;
     this.nodes = [];
     for (let i = 0; i < this.N; i++) {
@@ -962,6 +964,11 @@ const Slime = {
     }
     if (!keep) { this.ripples = []; }
     this.born = T;
+    if (keep) {
+      let g = false;
+      for (const q of pointers.values()) if (q.tgt === 'grab') { q.grabIdx = this.nearest(q.x, q.y).i; g = true; }
+      this.grab = g;
+    }
   },
   polyArea() {
     let a = 0; const n = this.nodes;
@@ -1045,7 +1052,11 @@ const Slime = {
     if (p && p.tgt === 'grab' && p.t0 != null && T - p.t0 < .25 && Math.hypot(p.x - (p.sx == null ? p.x : p.sx), p.y - (p.sy == null ? p.y : p.sy)) < 14) {
       Snd.slimePlop(this.panOf(p.x)); vibrate(10);
     }
-    if (this.grab && (!p || p.tgt === 'grab')) this.release();
+    if (this.grab && (!p || p.tgt === 'grab')) {
+      let others = false;
+      if (p) for (const q of pointers.values()) if (q !== p && q.tgt === 'grab') { others = true; break; }
+      if (!others) this.release();
+    }
   },
   reset() { this.build(false); Snd.slimeGrab(0); },
   setHue(i) {
@@ -1293,8 +1304,8 @@ function soapShade(hex, f) {
   return f >= 0 ? rgba(mixc(b, WHITE, f)) : rgba(mixc(b, [96, 55, 28], -f));
 }
 const SoapCut = {
-  bar: null, area0: 1, pieces: [], cols: null, nCols: 0, cellW: 12, tableY: 0,
-  cut: 0, curls: 0, gone: false, guide: null, decals: [], ci: 0,
+  bar: null, area0: 1, pieces: [],
+  cut: 0, curls: 0, gone: false, guide: null, ci: 0,
   build(keep) {
     const oldC = keep ? this.cut : 0, oldCu = keep ? this.curls : 0;
     const w = Math.min(W * .94, 620), h = clamp(H * .18, 140, 190);
@@ -1311,12 +1322,8 @@ const SoapCut = {
     this.bar = { pts, fresh: [], speck: this.sampleSpeck(pts, 36) };
     this.bar.c = this.centroidOf(pts);
     this.area0 = Math.max(1, this.areaOf(pts));
-    if (!keep) { this.pieces = []; this.decals = []; }
+    if (!keep) { this.pieces = []; }
     this.cut = oldC; this.curls = oldCu; this.gone = false; this.guide = null;
-    this.tableY = H - 120;
-    this.cellW = 12; this.nCols = Math.ceil(W / this.cellW) + 2;
-    if (!keep || !this.cols || this.cols.length !== this.nCols) this.cols = new Float32Array(this.nCols);
-    else if (keep) { /* сохраняем кучу при ресайзе */ }
   },
   areaOf(pts) { let a = 0; for (let i = 0; i < pts.length; i++) { const p = pts[i], q = pts[(i + 1) % pts.length]; a += p.x * q.y - q.x * p.y; } return Math.abs(a / 2); },
   centroidOf(pts) { let x = 0, y = 0; for (const p of pts) { x += p.x; y += p.y; } return { x: x / pts.length, y: y / pts.length }; },
@@ -1491,7 +1498,6 @@ const SoapCut = {
       pc.x += pc.vx * dt; pc.y += pc.vy * dt; pc.angle += pc.va * dt;
       if (pc.y - 60 > H + 40 || pc.x < -140 || pc.x > W + 140) this.pieces.splice(i, 1);
     }
-    for (let i = this.decals.length - 1; i >= 0; i--) { this.decals[i].life += dt; if (this.decals[i].life > 6) this.decals.splice(i, 1); }
   },
   polyPath(pts) { ctx.moveTo(pts[0].x, pts[0].y); for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y); ctx.closePath(); },
   paintPiece(pts, fresh, speck, curl, angle, cx, cy, ci) {
@@ -1619,7 +1625,7 @@ function mkBalloon(hex, S) {
 }
 const BALCOLS = ['#ff4d6d', '#ff9236', '#ffd43b', '#34d986', '#3aa8ff', '#a15cff'];
 const Ball = {
-  list: [], popped: 0, spr: [], sc: 1, inflId: -1, lastSq: 0, spawnT: 0,
+  list: [], popped: 0, spr: [], sc: 1, lastSq: 0, spawnT: 0,
   build(keep) {
     this.sc = clamp(Math.min(W, H) / 760, .6, 1.3);
     const S = Math.min(DPR, 3);
@@ -1716,6 +1722,7 @@ const Ball = {
       const b = L[i];
       b.ph += dt * 2;
       b.rot = Math.sin(b.ph * .7) * .14;
+      if (b.grow && !pointers.has(b.id)) { b.grow = false; b.vy = rnd(-50, -28); }
       if (b.grow) {
         b.r += 70 * this.sc * dt;
         b.hold += dt;
@@ -1786,14 +1793,24 @@ const Sand = {
   LX: .35, LY: -.55, LZ: .76,
   build(keep) {
     const oldM = keep ? this.moved : 0;
+    const oldHf = keep && this.hf && this.hf.length ? this.hf : null;
+    const oldCols = this.cols | 0, oldRows = this.rows | 0;
     this.area = { x: 14, y: 76, w: W - 28, h: H - 76 - 106 };
     this.cell = 7;
-    let cols = Math.ceil(this.area.w / this.cell), rows = Math.ceil(this.area.h / this.cell);
+    let cols = Math.max(1, Math.ceil(this.area.w / this.cell)), rows = Math.max(1, Math.ceil(this.area.h / this.cell));
     while (cols * rows > 14000) { this.cell++; cols = Math.ceil(this.area.w / this.cell); rows = Math.ceil(this.area.h / this.cell); }
     this.cols = cols; this.rows = rows;
     this.hf = new Float32Array(cols * rows);
-    const R = rng(99);
-    for (let i = 0; i < this.hf.length; i++) this.hf[i] = (R() - .5) * 3;
+    if (oldHf && oldCols > 0 && oldRows > 0) {
+      if (oldCols === cols && oldRows === rows) this.hf.set(oldHf.subarray(0, Math.min(oldHf.length, this.hf.length)));
+      else for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+        const si = Math.min(oldCols - 1, (i * oldCols / cols) | 0), sj = Math.min(oldRows - 1, (j * oldRows / rows) | 0);
+        this.hf[j * cols + i] = oldHf[sj * oldCols + si];
+      }
+    } else {
+      const R = rng(99);
+      for (let i = 0; i < this.hf.length; i++) this.hf[i] = (R() - .5) * 3;
+    }
     this.img = mkCanvas(cols, rows); this.ig = this.img.getContext('2d');
     this.idata = this.ig.createImageData(cols, rows);
     this.speck = mkCanvas(cols, rows);
@@ -1822,7 +1839,7 @@ const Sand = {
     for (let j = y0; j <= y1; j++) for (let i = x0; i <= x1; i++) {
       const d = Math.hypot(i - cc[0], j - cc[1]);
       if (d > R * 2) continue;
-      const k = this.cols * 0 + j * this.cols + i;
+      const k = j * this.cols + i;
       if (d <= R) {
         const f = .5 + .5 * Math.cos(d / R * Math.PI / 2), take = depth * f;
         this.hf[k] -= take; removed += take;
@@ -1893,7 +1910,7 @@ const Sand = {
     for (let j = Math.max(0, cc[1] - R); j <= Math.min(this.rows - 1, cc[1] + R); j++)
       for (let i = Math.max(0, cc[0] - R); i <= Math.min(this.cols - 1, cc[0] + R); i++) {
         const d2 = (i - cc[0]) * (i - cc[0]) + (j - cc[1]) * (j - cc[1]);
-        this.hf[j * this.cols + i] += H0 * Math.exp(-d2 / (2 * sig * sig));
+        this.hf[j * this.cols + i] = Math.min(60, this.hf[j * this.cols + i] + H0 * Math.exp(-d2 / (2 * sig * sig)));
       }
     this.relax(cc[0] - R, cc[1] - R, cc[0] + R, cc[1] + R);
     this.dirty = true;
@@ -2010,11 +2027,13 @@ const Glow = {
   layer: null, lg: null, lw: 0, lh: 0, sc: .5, dot: null, dots: null, painted: 0, hue: 180, lastTw: 0, lastStamp: -99, ci: 7, wi: 1,
   build(keep) {
     const old = keep ? this.painted : 0;
+    const oldLayer = keep && this.layer ? this.layer : null;
     this.sc = .5;
     this.lw = Math.max(2, Math.ceil(W * this.sc)); this.lh = Math.max(2, Math.ceil(H * this.sc));
     this.layer = mkCanvas(this.lw, this.lh);
     this.lg = this.layer.getContext('2d');
     this.lg.fillStyle = '#000'; this.lg.fillRect(0, 0, this.lw, this.lh);
+    if (oldLayer) { try { this.lg.drawImage(oldLayer, 0, 0, this.lw, this.lh); } catch (e) { /* ignore */ } }
     const S = 64, c = mkCanvas(S, S), g = c.getContext('2d');
     const gr = g.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, S / 2);
     gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(.25, 'rgba(255,255,255,.8)');
@@ -2066,7 +2085,7 @@ const Glow = {
   },
   down(p) {
     p.tgt = 'draw';
-    if (NEON_COLORS[this.ci].h < 0) this.hue += 24;
+    if (NEON_COLORS[this.ci] && NEON_COLORS[this.ci].h < 0) this.hue += 24;
     this.stamp(p.x, p.y, 4);
     Snd.twinkle((p.x / W - .5) * .9); vibrate(5);
     fx.push({ t: 'ring', x: p.x, y: p.y, r0: 4, r1: 30, life: 0, max: .3, css: 'rgba(255,255,255,.9)', a: .6, lw: 2 });
@@ -2119,18 +2138,21 @@ const Glow = {
 
 /* ---------- 9. FERRO — металлические опилки: облако, шипы, разлёт ---------- */
 const Ferro = {
-  pts: [], N: 1000, pulses: 0, shards: null, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
+  pts: [], N: 1000, pulses: 0, shards: null, sdpr: 0, fvx: 0, fvy: 0, prevCloud: 0, lastTick: 0,
+  refreshShards() {
+    if (this.shards && this.sdpr === DPR) return;
+    const mk = fn => { const S = 3, c = mkCanvas(8 * S, 8 * S), g = c.getContext('2d'); g.scale(S, S); g.translate(4, 4); fn(g); return c; };
+    this.shards = [
+      mk(g => { g.fillStyle = '#101322'; g.beginPath(); g.arc(0, 0, 1.6, 0, TAU); g.fill(); g.fillStyle = 'rgba(220,228,248,.9)'; g.beginPath(); g.arc(-.5, -.5, .6, 0, TAU); g.fill(); }),
+      mk(g => { const gr = g.createLinearGradient(-2.4, 0, 2.4, 0); gr.addColorStop(0, '#0a0c14'); gr.addColorStop(.5, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 2.4, .9, 0, 0, TAU); g.fill(); }),
+      mk(g => { const gr = g.createLinearGradient(0, -2.6, 0, 2.6); gr.addColorStop(0, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, -2.6); g.lineTo(.8, 0); g.lineTo(0, 2.6); g.lineTo(-.8, 0); g.closePath(); g.fill(); }),
+      mk(g => { g.fillStyle = '#1a1e30'; g.fillRect(-1.5, -1.5, 3, 3); g.fillStyle = 'rgba(220,228,248,.85)'; g.fillRect(-1.5, -1.5, 3, 1); })
+    ];
+    this.sdpr = DPR;
+  },
   build(keep) {
     const old = keep ? this.pulses : 0;
-    if (!this.shards) {
-      const mk = fn => { const S = 3, c = mkCanvas(8 * S, 8 * S), g = c.getContext('2d'); g.scale(S, S); g.translate(4, 4); fn(g); return c; };
-      this.shards = [
-        mk(g => { g.fillStyle = '#101322'; g.beginPath(); g.arc(0, 0, 1.6, 0, TAU); g.fill(); g.fillStyle = 'rgba(220,228,248,.9)'; g.beginPath(); g.arc(-.5, -.5, .6, 0, TAU); g.fill(); }),
-        mk(g => { const gr = g.createLinearGradient(-2.4, 0, 2.4, 0); gr.addColorStop(0, '#0a0c14'); gr.addColorStop(.5, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.ellipse(0, 0, 2.4, .9, 0, 0, TAU); g.fill(); }),
-        mk(g => { const gr = g.createLinearGradient(0, -2.6, 0, 2.6); gr.addColorStop(0, '#5a648c'); gr.addColorStop(1, '#05060c'); g.fillStyle = gr; g.beginPath(); g.moveTo(0, -2.6); g.lineTo(.8, 0); g.lineTo(0, 2.6); g.lineTo(-.8, 0); g.closePath(); g.fill(); }),
-        mk(g => { g.fillStyle = '#1a1e30'; g.fillRect(-1.5, -1.5, 3, 3); g.fillStyle = 'rgba(220,228,248,.85)'; g.fillRect(-1.5, -1.5, 3, 1); })
-      ];
-    }
+    this.refreshShards();
     this.pts = [];
     const R = rng(1234);
     for (let i = 0; i < this.N; i++) this.pts.push({ x: R() * W, y: 70 + R() * Math.max(50, H - 80), vx: rnd(-30, 30), vy: rnd(-30, 30), rot: R() * TAU, vr: rnd(-2, 2), sp: (R() * 4) | 0, s: rnd(.6, 1.3) });
@@ -2276,7 +2298,7 @@ const SPIN_SKINS = [
 ];
 const SPIN_TONES = SPIN_SKINS.map(s => ({ a: tone(s.c1), b: tone(s.c2) }));
 const Spin = {
-  x: 0, y: 0, R: 160, ang: 0, vel: 0, maxRPM: 0, spins: 0, prevSec: 0, si: 0, bvx: 0, bvy: 0, body: null, boosting: false, lastBoostSnd: 0,
+  x: 0, y: 0, R: 160, ang: 0, vel: 0, maxRPM: 0, spins: 0, prevSec: 0, si: 0, body: null, boosting: false, lastBoostSnd: 0,
   build(keep) {
     const oM = keep ? this.maxRPM : 0, oS = keep ? this.spins : 0;
     this.x = W / 2; this.y = H * .52;
@@ -2322,7 +2344,7 @@ const Spin = {
     if (!p) return;
     if (p.tgt === 'spin' && (p.path || 0) < 16 && T - (p.t0 || 0) < .3) { this.vel = 0; Snd.tick(900, .2); vibrate(8); }
   },
-  reset() { this.vel = 0; this.bvx = 0; this.bvy = 0; Snd.rustle(); },
+  reset() { this.vel = 0; Snd.rustle(); },
   setSkin(i) {
     this.si = clamp(i | 0, 0, SPIN_SKINS.length - 1);
     store.spinSi = this.si; saveStore();
@@ -2701,7 +2723,7 @@ function resize() {
   try { Slime.build(true); } catch (e) { /* ignore */ }
   try { SoapCut.build(true); } catch (e) { /* ignore */ }
   try { Ball.build(true); } catch (e) { /* ignore */ }
-  try { Sand.build(); } catch (e) { /* ignore */ }
+  try { Sand.build(true); } catch (e) { /* ignore */ }
   try { Glow.build(true); } catch (e) { /* ignore */ }
   try { Ferro.build(true); } catch (e) { /* ignore */ }
   try { Spin.build(true); } catch (e) { /* ignore */ }
@@ -2709,6 +2731,18 @@ function resize() {
 let rzTimer = 0;
 window.addEventListener('resize', () => { clearTimeout(rzTimer); rzTimer = setTimeout(resize, 140); });
 window.addEventListener('orientationchange', () => { clearTimeout(rzTimer); rzTimer = setTimeout(resize, 250); });
+function rebuildSprites() {
+  vig = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * .35, W / 2, H / 2, Math.max(W, H) * .85);
+  vig.addColorStop(0, 'rgba(20,0,60,0)'); vig.addColorStop(1, 'rgba(20,0,60,.42)');
+  try { Pop.build(true); } catch (e) { /* ignore */ }
+  try { Wrap.build(true); } catch (e) { /* ignore */ }
+  try { SoapCut.build(true); } catch (e) { /* ignore */ }
+  try { Ball.build(true); } catch (e) { /* ignore */ }
+  try { Sand.build(true); } catch (e) { /* ignore */ }
+  try { Glow.build(true); } catch (e) { /* ignore */ }
+  try { Ferro.refreshShards(); } catch (e) { /* ignore */ }
+  try { Spin.build(true); } catch (e) { /* ignore */ }
+}
 let last = performance.now(), emaDt = 1 / 60, emaN = 0, lastQDrop = -9;
 function frame(now) {
   const dt = Math.min(.05, Math.max(0.001, (now - last) / 1000)); last = now; T += dt; modeT = Math.min(1, modeT + dt / .35);
@@ -2726,6 +2760,7 @@ function frame(now) {
     lastQDrop = T; emaN = 0;
     DPR = Math.max(1, DPR - .25);
     cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+    try { rebuildSprites(); } catch (e) { /* ignore */ }
   }
   requestAnimationFrame(frame);
 }
