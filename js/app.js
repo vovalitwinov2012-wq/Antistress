@@ -408,6 +408,14 @@ function drawFx() {
       ctx.globalAlpha = (1 - k) * .95; ctx.fillStyle = f.css;
       ctx.beginPath(); ctx.arc(f.x, f.y, Math.max(.4, f.size * (1 - k * .5)), 0, TAU); ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
+    } else if (f.t === 'thread') {
+      const mx = (f.x1 + f.x2) / 2, my = (f.y1 + f.y2) / 2 + 14 * k;
+      ctx.globalAlpha = (1 - k) * .9;
+      ctx.strokeStyle = 'hsla(' + (f.hue == null ? 320 : f.hue) + ',90%,70%,1)';
+      ctx.lineWidth = Math.max(1, 7 * (1 - k) + 1); ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(f.x1, f.y1); ctx.quadraticCurveTo(mx, my, f.x2, f.y2); ctx.stroke();
+      ctx.globalAlpha = (1 - k) * .9; ctx.fillStyle = '#fff';
+      ctx.beginPath(); ctx.arc(f.x1, f.y1, Math.max(.5, 2.4 * (1 - k)), 0, TAU); ctx.fill();
     } else if (f.t === 'conf') {
       ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot);
       ctx.globalAlpha = k > .8 ? (1 - k) / .2 : 1; ctx.fillStyle = f.css;
@@ -933,17 +941,18 @@ const SLIME_HUES = [
   { name: ['Красный', 'Red'], h: 0 }
 ];
 const SLIME_VI = [
-  { name: ['Мягкий', 'Soft'], mem: 6, damp: .955 },
-  { name: ['Средний', 'Medium'], mem: 9, damp: .945 },
-  { name: ['Твёрдый', 'Firm'], mem: 14, damp: .93 }
+  { name: ['Мягкий', 'Soft'], mem: 6, damp: .955, flow: .9, decay: .09 },
+  { name: ['Средний', 'Medium'], mem: 9, damp: .945, flow: .6, decay: .065 },
+  { name: ['Твёрдый', 'Firm'], mem: 14, damp: .93, flow: .35, decay: .045 }
 ];
 const Slime = {
   nodes: [], N: 28, cx: 0, cy: 0, R: 150, rest: 30, area0: 1,
   grab: false, grabIdx: 0, grabDirX: 0, grabDirY: -1, glint: [], ripples: [],
-  hi: 0, vi: 1, interacted: false,
+  hi: 0, vi: 1, interacted: false, lastGrab: null, lastPop: -9,
   folds: 0, stretchPeak: 0, hue: 320, lastSnd: 0, born: -9,
   build(keep) {
     const oldF = keep ? this.folds : 0;
+    const oldNodes = keep && this.nodes.length === this.N ? this.nodes : null;
     this.cx = W / 2; this.cy = H * .52;
     this.R = clamp(Math.min(W, H) * .36, 140, 320);
     this.rest = 2 * Math.PI * this.R / this.N;
@@ -951,7 +960,19 @@ const Slime = {
     for (let i = 0; i < this.N; i++) {
       const a = i / this.N * TAU, r = this.R * rnd(.97, 1.03);
       const x = this.cx + Math.cos(a) * r, y = this.cy + Math.sin(a) * r;
-      this.nodes.push({ x, y, px: x, py: y, ax: 0, ay: 0, ha: a });
+      this.nodes.push({ x, y, px: x, py: y, ax: 0, ay: 0, ha: a, rx: 0, ry: 0 });
+    }
+    if (oldNodes) {
+      for (const n of this.nodes) {
+        let bi = 0, bd = 1e18;
+        for (let i = 0; i < oldNodes.length; i++) {
+          const o = oldNodes[i], d = (o.x - n.x) * (o.x - n.x) + (o.y - n.y) * (o.y - n.y);
+          if (d < bd) { bd = d; bi = i; }
+        }
+        const o = oldNodes[bi];
+        n.x = o.x; n.y = o.y; n.px = o.px; n.py = o.py;
+        n.rx = o.rx || 0; n.ry = o.ry || 0;
+      }
     }
     this.area0 = Math.max(1, this.polyArea());
     this.folds = oldF; this.grab = false; this.stretchPeak = 0;
@@ -959,14 +980,14 @@ const Slime = {
     if (!keep || !this.glint.length) {
       this.glint = [];
       const Rg = rng(77);
-      for (let i = 0; i < 14; i++) this.glint.push({ k: 0, a: Rg() * TAU, f: .15 + Rg() * .55, r: 6 + Rg() * 10, sp: rnd(.02, .09) });
-      for (let i = 0; i < 12; i++) this.glint.push({ k: 1, a: Rg() * TAU, f: .1 + Rg() * .7, r: 1.5 + Rg() * 1.8, sp: rnd(.5, 1.6) });
+      for (let i = 0; i < 14; i++) { const a = Rg() * TAU, f = .15 + Rg() * .55; this.glint.push({ k: 0, a, f, ux: Math.cos(a) * f, uy: Math.sin(a) * f, r: 6 + Rg() * 10, sp: rnd(.02, .09) }); }
+      for (let i = 0; i < 12; i++) { const a = Rg() * TAU, f = .1 + Rg() * .7; this.glint.push({ k: 1, a, f, ux: Math.cos(a) * f, uy: Math.sin(a) * f, r: 1.5 + Rg() * 1.8, sp: rnd(.5, 1.6) }); }
     }
     if (!keep) { this.ripples = []; }
     this.born = T;
     if (keep) {
       let g = false;
-      for (const q of pointers.values()) if (q.tgt === 'grab') { q.grabIdx = this.nearest(q.x, q.y).i; g = true; }
+      for (const q of pointers.values()) if (q.tgt === 'grab') { q.grabIdx = this.nearest(q.x, q.y).i; q._snapped = false; g = true; }
       this.grab = g;
     }
   },
@@ -1008,6 +1029,7 @@ const Slime = {
     const hit = this.nearest(p.x, p.y);
     if (hit.d < this.R * 1.35 || this.inside(p.x, p.y)) {
       this.grab = true; this.grabIdx = hit.i; p.tgt = 'grab'; p.grabIdx = hit.i;
+      p._snapped = false; p._farT = 0;
       p.t0 = T; p.sx = p.x; p.sy = p.y;
       this.dent(hit.i, 14);
       this.interacted = true;
@@ -1021,6 +1043,7 @@ const Slime = {
         n.px -= dx / d * 6; n.py -= dy / d * 6;
       }
       Snd.slimeStretch(this.panOf(p.x)); vibrate(5); p.tgt = 'poke';
+      this.interacted = true;
     }
   },
   move(p) {
@@ -1030,6 +1053,18 @@ const Slime = {
     if (d > 26 && fx.length < 380) fx.push({ t: 'spark', x: p.x + rnd(-8, 8), y: p.y + rnd(-8, 8), vx: rnd(-40, 40), vy: rnd(-60, 20), g: 200, drag: 2.5, size: rnd(1, 2.4), css: 'hsla(' + this.hue + ',95%,80%,1)', life: 0, max: rnd(.25, .5) });
   },
   release() {
+    if (this.stretchPeak > 1.15 && this.lastGrab && fx.length < 370) {
+      const c = this.centroid();
+      const dx = this.lastGrab.x - c.x, dy = this.lastGrab.y - c.y, d = Math.hypot(dx, dy) + 1e-6;
+      for (let i = 0; i < 2; i++) {
+        const off = (i - .5) * this.R * .12;
+        fx.push({
+          t: 'thread', x1: this.lastGrab.x + rnd(-6, 6), y1: this.lastGrab.y + rnd(-6, 6),
+          x2: c.x + dx / d * this.R * .9 - dy / d * off, y2: c.y + dy / d * this.R * .9 + dx / d * off,
+          life: 0, max: rnd(.4, .6), hue: this.hue
+        });
+      }
+    }
     if (this.stretchPeak > 1.45) {
       this.folds++;
       Snd.slimePlop(this.panOf(this.cx)); vibrate(15);
@@ -1058,7 +1093,11 @@ const Slime = {
       if (!others) this.release();
     }
   },
-  reset() { this.build(false); Snd.slimeGrab(0); },
+  reset() { this.releaseAll(); this.build(false); Snd.slimeGrab(0); },
+  releaseAll() {
+    for (const q of pointers.values()) if (q.tgt === 'grab') { q.tgt = 'done'; q._snapped = false; }
+    this.grab = false; this.stretchPeak = 0;
+  },
   setHue(i) {
     this.hi = clamp(i | 0, 0, SLIME_HUES.length - 1);
     store.slimeHi = this.hi; saveStore();
@@ -1081,16 +1120,23 @@ const Slime = {
       let nx = -ey / len, ny = ex / len;
       const mx = (p.x + q.x) / 2 - c.x, my = (p.y + q.y) / 2 - c.y;
       if (nx * mx + ny * my < 0) { nx = -nx; ny = -ny; }
-      const F = P * len * 160 * .5;
+      const F = P * len * 320 * .5;
       p.ax += nx * F; p.ay += ny * F; q.ax += nx * F; q.ay += ny * F;
     }
-    const kA = (grabs.length ? 14 : 26) / N;
+    const kA = (grabs.length ? 8 : 14) / N;
     const VI = SLIME_VI[this.vi] || SLIME_VI[1];
     const damp = VI.damp, h2 = h * h;
+    const setK = grabs.length ? 1 - Math.exp(-h * VI.flow) : 0;
+    const relK = grabs.length ? 0 : Math.exp(-h * VI.decay);
     for (const n of nodes) {
       n.ax += (this.cx - c.x) * kA; n.ay += (this.cy - c.y) * kA;
       const hx = this.cx + Math.cos(n.ha) * R, hy = this.cy + Math.sin(n.ha) * R;
-      n.ax += (hx - n.x) * VI.mem; n.ay += (hy - n.y) * VI.mem;
+      if (setK > 0) {
+        n.rx = lerp(n.rx, clamp(n.x - hx, -R, R), setK);
+        n.ry = lerp(n.ry, clamp(n.y - hy, -R, R), setK);
+      } else if (relK < 1) { n.rx *= relK; n.ry *= relK; }
+      const tx = clamp(hx + n.rx, this.cx - R, this.cx + R), ty = clamp(hy + n.ry, this.cy - R, this.cy + R);
+      n.ax += (tx - n.x) * VI.mem; n.ay += (ty - n.y) * VI.mem;
       let vx = (n.x - n.px) * damp, vy = (n.y - n.py) * damp;
       const sp = Math.hypot(vx, vy);
       if (sp > 30) { vx *= 30 / sp; vy *= 30 / sp; }
@@ -1098,9 +1144,12 @@ const Slime = {
       n.x += vx + n.ax * h2; n.y += vy + n.ay * h2;
     }
     if (grabs.length) {
+      let spread = 0;
+      for (const n of nodes) spread = Math.max(spread, Math.hypot(n.x - c.x, n.y - c.y));
       for (const gr of grabs) {
         const gd = Math.hypot(gr.x - c.x, gr.y - c.y);
-        if (gd > R * 2.4) {
+        const torn = gd - spread > R * 1.2 || ((gr.v || 0) > 1500 && (gd - spread > R * .45 || gd > R * 1.8));
+        if (torn) {
           if (gr.q && !gr.q._snapped) {
             gr.q._snapped = true; gr.q.tgt = 'loose';
             Snd.slimePlop(this.panOf(gr.x)); vibrate(10);
@@ -1113,8 +1162,11 @@ const Slime = {
         }
         for (let k = -1; k <= 1; k++) {
           const n = nodes[(gr.idx + k + N * 2) % N], w = k === 0 ? .5 : .3;
+          const ox = n.x, oy = n.y;
           n.px = lerp(n.px, gr.x, w * .7); n.py = lerp(n.py, gr.y, w * .7);
           n.x = lerp(n.x, gr.x, w); n.y = lerp(n.y, gr.y, w);
+          const ddx = n.x - ox, ddy = n.y - oy, dl = Math.hypot(ddx, ddy), mx = R * .2;
+          if (dl > mx) { n.x = ox + ddx / dl * mx; n.y = oy + ddy / dl * mx; }
         }
       }
       const g0 = grabs[0];
@@ -1148,14 +1200,31 @@ const Slime = {
   },
   update(dt) {
     const grabs = [];
-    if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') grabs.push({ x: q.x, y: q.y, idx: q.grabIdx == null ? this.grabIdx : q.grabIdx, q });
+    if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') grabs.push({ x: q.x, y: q.y, idx: q.grabIdx == null ? this.grabIdx : q.grabIdx, q, v: Math.hypot(q.x - q.px, q.y - q.py) / Math.max(dt, .004) });
     if (this.grab && !grabs.length) { this.release(); }
+    if (grabs.length) {
+      const c0 = this.centroid();
+      const gap0 = Math.hypot(grabs[0].x - c0.x, grabs[0].y - c0.y);
+      const kH = 1 - Math.exp(-dt * (1.2 + clamp(gap0 / this.R, 0, 3) * 2.5));
+      this.cx = lerp(this.cx, c0.x, kH); this.cy = lerp(this.cy, c0.y, kH);
+      this.lastGrab = { x: grabs[0].x, y: grabs[0].y };
+    }
     const sub = 3, h = Math.min(dt, .033) / sub;
     for (let s = 0; s < sub; s++) this.step(h, grabs);
     const c = this.centroid();
     let peak = 0;
     for (const n of this.nodes) peak = Math.max(peak, Math.hypot(n.x - c.x, n.y - c.y) / this.R);
     if (this.grab) this.stretchPeak = Math.max(this.stretchPeak, peak);
+    for (const bl of this.glint) {
+      bl.uy -= dt * (.02 + bl.r * .004);
+      bl.ux += Math.sin(T * bl.sp + bl.a) * dt * .03;
+      if (bl.ux > .85) bl.ux = .85; else if (bl.ux < -.85) bl.ux = -.85;
+      if (bl.uy < -.8) {
+        bl.uy = .8; bl.ux = rnd(-.6, .6);
+        if (fx.length < 380) fx.push({ t: 'ring', x: c.x + bl.ux * this.R, y: c.y - this.R * .75, r0: 2, r1: 9, life: 0, max: .3, css: 'rgba(255,255,255,.9)', a: .5, lw: 1.5 });
+        if (T - this.lastPop > .5) { this.lastPop = T; Snd.tick(2200, .06); }
+      }
+    }
   },
   tracePath() {
     const n = this.nodes;
@@ -1186,7 +1255,8 @@ const Slime = {
     if (grabPt && gd > R * 1.5) {
       const dx = (grabPt.x - c.x) / gd, dy = (grabPt.y - c.y) / gd;
       const bx = c.x + dx * R * .9, by = c.y + dy * R * .9;
-      const px = -dy, py = dx, w0 = R * .3, w1 = R * .1;
+      const px = -dy, py = dx;
+      const thin = 1 / Math.max(1, this.stretchPeak * .45), w0 = R * .3 * thin, w1 = R * .1 * thin;
       const g = ctx.createLinearGradient(bx, by, grabPt.x, grabPt.y);
       g.addColorStop(0, 'hsla(' + this.hue + ',90%,66%,1)');
       g.addColorStop(1, 'hsla(' + this.hue + ',95%,80%,1)');
@@ -1230,9 +1300,8 @@ const Slime = {
       ctx.globalAlpha = 1;
     }
     for (const bl of this.glint) {
-      const aa = bl.a + T * bl.sp * .12;
-      const rrf = bl.f * R * (1 + this.stretchPeak * .22);
-      const bx = c.x + Math.cos(aa) * rrf, by = c.y + Math.sin(aa) * rrf * .92;
+      const pk = 1 + this.stretchPeak * .22;
+      const bx = c.x + bl.ux * R * pk, by = c.y + bl.uy * R * .92 * pk;
       if (bl.k === 0) {
         const bg = ctx.createRadialGradient(bx - bl.r * .3, by - bl.r * .3, bl.r * .1, bx, by, bl.r);
         bg.addColorStop(0, 'rgba(255,255,255,.6)'); bg.addColorStop(.6, 'rgba(255,255,255,.12)'); bg.addColorStop(1, 'rgba(255,255,255,.3)');
@@ -1261,7 +1330,7 @@ const Slime = {
       }
     }
     ctx.restore();
-    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2 * (1 + clamp((this.stretchPeak - 1) * .2, 0, .4));
     ctx.beginPath(); this.tracePath(); ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,.32)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.arc(c.x, c.y, R * .99, -2.5, -.7); ctx.stroke();
@@ -2635,6 +2704,7 @@ function paintChips() {
 }
 function setMode(m) {
   if (!modes[m]) return;
+  if (mode === 'slime' && m !== 'slime') { try { Slime.releaseAll(); } catch (e) { /* ignore */ } }
   mode = m; modeT = 0; pointers.clear(); fx.length = 0;
   tabs.forEach(t => t.setAttribute('aria-selected', String(t.dataset.mode === m)));
   paintChips();
