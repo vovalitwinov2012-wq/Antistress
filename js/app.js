@@ -46,7 +46,7 @@ let themeName = (store.theme === 'ocean' || store.theme === 'neon') ? store.them
 const STR = {
   ru: {
     dock: { pop: 'Поп-ит', wrap: 'Пупырка', bubbles: 'Пузыри', slime: 'Слайм', soap: 'Мыло', ball: 'Шарики', sand: 'Песок', glow: 'Неон', ferro: 'Магнит', spin: 'Спиннер' },
-    chips: ['Радуга', 'Сердце', 'Круг'],
+    chips: ['Прямоугольник', 'Сердце', 'Круг'],
     hints: {
       pop: 'Нажимай на пупырышки — можно водить пальцем',
       wrap: 'Води пальцем по плёнке — пузырьки лопаются',
@@ -66,7 +66,7 @@ const STR = {
   },
   en: {
     dock: { pop: 'Pop-it', wrap: 'Wrap', bubbles: 'Bubbles', slime: 'Slime', soap: 'Soap', ball: 'Balloons', sand: 'Sand', glow: 'Neon', ferro: 'Magnet', spin: 'Spinner' },
-    chips: ['Rainbow', 'Heart', 'Circle'],
+    chips: ['Rectangle', 'Heart', 'Circle'],
     hints: {
       pop: 'Press the bubbles — you can slide your finger',
       wrap: 'Slide over the film — pop the wrap',
@@ -496,16 +496,21 @@ const Pop = {
       const cols = land ? 10 : 6, rows = land ? 6 : 10;
       for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) pts.push({ ux: i - (cols - 1) / 2, uy: j - (rows - 1) / 2, ci: land ? j : i });
     } else if (shape === 'heart') {
-      const st = .26;
-      for (let j = -7; j <= 7; j++) for (let i = -7; i <= 7; i++) {
+      const st = .22;
+      let n = 0;
+      for (let j = -8; j <= 8; j++) for (let i = -8; i <= 8; i++) {
         const X = i * st, Y = j * st + .08, a = X * X + Y * Y - 1;
-        if (a * a * a - X * X * Y * Y * Y <= 0) pts.push({ ux: i, uy: -j, ci: 0 });
+        if (a * a * a - X * X * Y * Y * Y <= 0) { pts.push({ ux: i, uy: -j, ci: (n++ % 10 < 7) ? 0 : (n % 2 ? 5 : 1) }); }
       }
     } else {
-      const R = 4.15, map = [5, 4, 3, 2, 0];
-      for (let j = -6; j <= 6; j++) for (let i = -8; i <= 8; i++) {
-        const x = i + ((j & 1) ? .5 : 0), y = j * .866, d = Math.hypot(x, y);
-        if (d <= R + 1e-6) pts.push({ ux: x, uy: y, ci: map[Math.min(4, Math.round(d / 1.04))] });
+      const R = 4.15, map = [5, 4, 3, 2, 0], spacing = 1;
+      pts.push({ ux: 0, uy: 0, ci: 0 });
+      for (let ring = 1; ring * spacing <= R + 1e-6; ring++) {
+        const rr = ring * spacing, cnt = Math.max(6, Math.round(2 * Math.PI * rr / spacing));
+        for (let k = 0; k < cnt; k++) {
+          const a = k / cnt * TAU;
+          pts.push({ ux: Math.cos(a) * rr, uy: Math.sin(a) * rr, ci: map[Math.min(4, Math.round(ring / 1.04))] });
+        }
       }
     }
     let minx = 1e9, maxx = -1e9, miny = 1e9, maxy = -1e9;
@@ -513,9 +518,8 @@ const Pop = {
     const bw = maxx - minx, bh = maxy - miny, mx = (minx + maxx) / 2, my = (miny + maxy) / 2;
     for (const q of pts) {
       q.pitch = (q.ux - minx) / (bw || 1);
-      if (shape === 'heart') q.ci = clamp(Math.floor(((q.ux - minx) / (bw || 1) + (q.uy - miny) / (bh || 1)) / 2 * 6), 0, 5);
     }
-    const unit = Math.max(8, Math.min(availW / (bw + 1.7), availH / (bh + 1.7), 150));
+    const unit = Math.max(8, Math.min(availW / (bw + 1.7), availH / (bh + 1.7), 165));
     const cx = W / 2, cy = 78 + availH / 2;
     const same = prev.length === pts.length;
     this.bubbles = pts.map((q, i) => {
@@ -941,9 +945,9 @@ const SLIME_HUES = [
   { name: ['Красный', 'Red'], h: 0 }
 ];
 const SLIME_VI = [
-  { name: ['Мягкий', 'Soft'], mem: 6, damp: .955, flow: .9, decay: .09 },
-  { name: ['Средний', 'Medium'], mem: 9, damp: .945, flow: .6, decay: .065 },
-  { name: ['Твёрдый', 'Firm'], mem: 14, damp: .93, flow: .35, decay: .045 }
+  { name: ['Мягкий', 'Soft'], mem: 8, damp: .95, flow: .5, decay: .3 },
+  { name: ['Средний', 'Medium'], mem: 13, damp: .94, flow: .35, decay: .22 },
+  { name: ['Твёрдый', 'Firm'], mem: 20, damp: .92, flow: .22, decay: .15 }
 ];
 const Slime = {
   nodes: [], N: 28, cx: 0, cy: 0, R: 150, rest: 30, area0: 1,
@@ -954,7 +958,7 @@ const Slime = {
     const oldF = keep ? this.folds : 0;
     const oldNodes = keep && this.nodes.length === this.N ? this.nodes : null;
     this.cx = W / 2; this.cy = H * .52;
-    this.R = clamp(Math.min(W, H) * .36, 140, 320);
+    this.R = clamp(Math.min(W, H) * .45, 170, 380);
     this.rest = 2 * Math.PI * this.R / this.N;
     this.nodes = [];
     for (let i = 0; i < this.N; i++) {
@@ -1203,10 +1207,6 @@ const Slime = {
     if (this.grab) for (const q of pointers.values()) if (q.tgt === 'grab') grabs.push({ x: q.x, y: q.y, idx: q.grabIdx == null ? this.grabIdx : q.grabIdx, q, v: Math.hypot(q.x - q.px, q.y - q.py) / Math.max(dt, .004) });
     if (this.grab && !grabs.length) { this.release(); }
     if (grabs.length) {
-      const c0 = this.centroid();
-      const gap0 = Math.hypot(grabs[0].x - c0.x, grabs[0].y - c0.y);
-      const kH = 1 - Math.exp(-dt * (1.2 + clamp(gap0 / this.R, 0, 3) * 2.5));
-      this.cx = lerp(this.cx, c0.x, kH); this.cy = lerp(this.cy, c0.y, kH);
       this.lastGrab = { x: grabs[0].x, y: grabs[0].y };
     }
     const sub = 3, h = Math.min(dt, .033) / sub;
@@ -1332,10 +1332,6 @@ const Slime = {
     ctx.restore();
     ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2 * (1 + clamp((this.stretchPeak - 1) * .2, 0, .4));
     ctx.beginPath(); this.tracePath(); ctx.stroke();
-    ctx.strokeStyle = 'rgba(255,255,255,.32)'; ctx.lineWidth = 5; ctx.lineCap = 'round';
-    ctx.beginPath(); ctx.arc(c.x, c.y, R * .99, -2.5, -.7); ctx.stroke();
-    ctx.strokeStyle = 'hsla(' + ((this.hue + 40) % 360) + ',70%,30%,.35)'; ctx.lineWidth = 5;
-    ctx.beginPath(); ctx.arc(c.x, c.y, R * .99, .6, 2.3); ctx.stroke();
     ctx.save(); ctx.translate(c.x - R * .34, c.y - R * .4); ctx.rotate(-.5); ctx.scale(1, .55);
     const hi = ctx.createRadialGradient(0, 0, 0, 0, 0, R * .3);
     hi.addColorStop(0, 'rgba(255,255,255,.95)'); hi.addColorStop(1, 'rgba(255,255,255,0)');
