@@ -9,7 +9,7 @@
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;height:var(--app-h,100dvh);overflow:hidden;background:#24105a;font-family:var(--font);color:#fff;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;overscroll-behavior:none}
-canvas{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:pointer}
+canvas{position:fixed;left:0;top:0;width:100%;height:var(--app-h,100dvh);display:block;touch-action:none;cursor:pointer}
 #ui{position:fixed;inset:0;pointer-events:none}
 .glass{background:var(--glass);-webkit-backdrop-filter:blur(16px) saturate(1.5);backdrop-filter:blur(16px) saturate(1.5);
   border:1px solid var(--glass-line);box-shadow:0 8px 30px rgba(20,0,70,.28),inset 0 1px 0 rgba(255,255,255,.38)}
@@ -33,20 +33,20 @@ button:focus-visible{outline:3px solid #fff;outline-offset:2px}
 .tab:active{transform:scale(.95)}
 .tab[aria-selected=true]{background:#fff;color:var(--ink);box-shadow:0 4px 14px rgba(20,0,70,.3)}
 .tab svg{width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
-.chips{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom) + var(--tg-sab));display:flex;gap:8px;pointer-events:auto;transition:opacity .3s,transform .3s;max-width:calc(100vw - 20px);overflow-x:auto;scrollbar-width:none;padding:4px}
+.chips{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom) + var(--tg-sab));display:flex;gap:8px;pointer-events:auto;transition:opacity .3s,transform .3s;max-width:calc(100vw - 20px);overflow-x:auto;scrollbar-width:none;padding:4px;visibility:visible}
 .chips::-webkit-scrollbar{display:none}
-.chips.hidden{opacity:0;pointer-events:none;transform:translate(-50%,10px)}
+.chips.hidden{opacity:0;pointer-events:none;transform:translate(-50%,10px);visibility:hidden}
 .chip{appearance:none;font:inherit;font-weight:800;font-size:14px;color:#fff;padding:9px 18px;border-radius:999px;cursor:pointer;transition:background .2s,color .2s,transform .15s;white-space:nowrap}
 .chip:active{transform:scale(.94)}
 .chip[aria-pressed=true]{background:rgba(255,255,255,.95);color:var(--ink)}
 #chips [data-group]{display:flex;gap:8px;flex-shrink:0;align-items:center}
 button{touch-action:manipulation}
-.spinbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom) + var(--tg-sab));display:flex;gap:8px;pointer-events:auto;transition:opacity .3s,transform .3s;max-width:calc(100vw - 20px)}
-.spinbar.hidden{opacity:0;pointer-events:none;transform:translate(-50%,10px)}
+.spinbar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(88px + env(safe-area-inset-bottom) + var(--tg-sab));display:flex;gap:8px;pointer-events:auto;transition:opacity .3s,transform .3s;max-width:calc(100vw - 20px);visibility:visible}
+.spinbar.hidden{opacity:0;pointer-events:none;transform:translate(-50%,10px);visibility:hidden}
 .spininfo{padding:9px 14px}
 .spininfo svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;vertical-align:-3px}
-.skindrop{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(142px + env(safe-area-inset-bottom) + var(--tg-sab));width:min(320px,calc(100vw - 32px));max-height:42vh;overflow-y:auto;border-radius:20px;padding:8px;pointer-events:auto;transition:opacity .25s,transform .25s}
-.skindrop.hidden{opacity:0;pointer-events:none;transform:translate(-50%,8px)}
+.skindrop{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(142px + env(safe-area-inset-bottom) + var(--tg-sab));width:min(320px,calc(100vw - 32px));max-height:42vh;overflow-y:auto;border-radius:20px;padding:8px;pointer-events:auto;transition:opacity .25s,transform .25s;visibility:visible}
+.skindrop.hidden{opacity:0;pointer-events:none;transform:translate(-50%,8px);visibility:hidden}
 .srow{appearance:none;display:flex;align-items:center;gap:12px;width:100%;border:2px solid transparent;background:transparent;border-radius:14px;padding:6px 10px;cursor:pointer;color:#fff;font:inherit;transition:background .2s,border-color .2s,transform .15s}
 .srow:active{transform:scale(.98)}
 .srow[aria-selected=true]{border-color:#fff;background:rgba(255,255,255,.25)}
